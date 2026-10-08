@@ -19,6 +19,26 @@ export const AuthProvider = ({ children }) => {
     init();
   }, []);
 
+  const login = async (email, password) => {
+    const u = await mockAuthService.login(email, password);
+    setUser(u);
+    if (u?.role) setActiveRole(u.role);
+    return u;
+  };
+
+  const register = async (userData) => {
+    const u = await mockAuthService.register(userData);
+    setUser(u);
+    if (u?.role) setActiveRole(u.role);
+    return u;
+  };
+
+  const logout = async () => {
+    await mockAuthService.logout();
+    setUser(null);
+    setActiveRole('Participant');
+  };
+
   const switchRole = (role) => {
     mockAuthService.switchRole(role);
     setActiveRole(role);
@@ -34,6 +54,9 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user,
       activeRole,
+      login,
+      register,
+      logout,
       switchRole,
       updateUser,
       isLoading,
