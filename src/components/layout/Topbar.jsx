@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Menu,
@@ -9,19 +9,38 @@ import {
   UserCheck,
   Check,
   ExternalLink,
-  Layers
+  Layers,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Dropdown, DropdownItem } from '../ui/Dropdown';
 import { Badge } from '../ui/Badge';
 import { mockNotifications } from '../../data/reputation';
+import { api } from '../../services/api';
 
 export const Topbar = ({ onMenuClick }) => {
   const { user, activeRole, switchRole, demoRoles } = useAuth();
   const [notifications, setNotifications] = useState(mockNotifications);
+  const [apiOnline, setApiOnline] = useState(null);
   const navigate = useNavigate();
 
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    const checkApiHealth = async () => {
+      try {
+        const res = await api.get('/health');
+        if (res.success) {
+          setApiOnline(true);
+        } else {
+          setApiOnline(false);
+        }
+      } catch (err) {
+        setApiOnline(false);
+      }
+    };
+    checkApiHealth();
+  }, []);
 
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -45,6 +64,20 @@ export const Topbar = ({ onMenuClick }) => {
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
               Demo Mode ({activeRole})
+            </span>
+
+            {/* Live API Health Indicator */}
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
+              apiOnline === true
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : apiOnline === false
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-slate-100 text-slate-500 border-slate-200'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                apiOnline === true ? 'bg-emerald-500' : apiOnline === false ? 'bg-red-500' : 'bg-slate-400'
+              }`}></span>
+              API: {apiOnline === true ? 'Online' : apiOnline === false ? 'Offline' : 'Checking...'}
             </span>
           </div>
         </div>
