@@ -1,30 +1,44 @@
+import { api } from './api';
 import { mockNotifications, mockReputationHistory } from '../data/reputation';
-
-const NOTIFS_KEY = 'hackhub_notifications';
 
 export const mockNotificationService = {
   getNotifications: async () => {
-    const saved = localStorage.getItem(NOTIFS_KEY);
-    return saved ? JSON.parse(saved) : mockNotifications;
+    try {
+      const res = await api.get('/notifications');
+      if (res.success && res.data && res.data.length > 0) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return mockNotifications;
   },
 
   markAsRead: async (id) => {
-    const list = await mockNotificationService.getNotifications();
-    const updated = list.map(n => n.id === id ? { ...n, read: true } : n);
-    localStorage.setItem(NOTIFS_KEY, JSON.stringify(updated));
-    return updated;
+    try {
+      await api.patch('/notifications/read-all', {});
+    } catch (e) {}
+    return mockNotifications.map((n) => ({ ...n, read: true }));
   },
 
   markAllAsRead: async () => {
-    const list = await mockNotificationService.getNotifications();
-    const updated = list.map(n => ({ ...n, read: true }));
-    localStorage.setItem(NOTIFS_KEY, JSON.stringify(updated));
-    return updated;
-  }
+    try {
+      await api.patch('/notifications/read-all', {});
+    } catch (e) {}
+    return mockNotifications.map((n) => ({ ...n, read: true }));
+  },
 };
 
 export const mockReputationService = {
   getReputationHistory: async () => {
+    try {
+      const res = await api.get('/reputation');
+      if (res.success && res.data && res.data.length > 0) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
     return mockReputationHistory;
-  }
+  },
 };

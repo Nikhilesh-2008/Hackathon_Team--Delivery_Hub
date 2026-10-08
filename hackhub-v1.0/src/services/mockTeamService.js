@@ -1,125 +1,176 @@
+import { api } from './api';
 import { mockTeams, mockTasks, mockTimeline } from '../data/teams';
 import { mockFeedback, mockInvitations } from '../data/reputation';
 
-const TEAM_KEY = 'hackhub_team_nova';
-const TASKS_KEY = 'hackhub_tasks';
-const INVITATIONS_KEY = 'hackhub_invitations';
-const SUBMISSION_KEY = 'hackhub_submission';
-
 export const mockTeamService = {
   getCurrentTeam: async () => {
-    const saved = localStorage.getItem(TEAM_KEY);
-    return saved ? JSON.parse(saved) : mockTeams[0];
+    try {
+      const res = await api.get('/teams/my-team');
+      if (res.success && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return mockTeams[0];
   },
 
   getAllTeams: async () => {
+    try {
+      const res = await api.get('/teams');
+      if (res.success && res.data && res.data.length > 0) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
     return mockTeams;
   },
 
-  updateTeam: async (teamData) => {
-    const current = await mockTeamService.getCurrentTeam();
-    const updated = { ...current, ...teamData };
-    localStorage.setItem(TEAM_KEY, JSON.stringify(updated));
-    return updated;
-  },
-
-  sendInvitation: async (candidateId, message) => {
-    return {
-      success: true,
-      message: `Invitation sent to candidate successfully!`
-    };
+  sendInvitation: async (candidateId, message, receiverName = 'Developer') => {
+    try {
+      const res = await api.post('/teams/invitations', {
+        receiverId: candidateId,
+        receiverName,
+        message,
+      });
+      if (res.success) return res;
+    } catch (e) {
+      // Fallback
+    }
+    return { success: true, message: 'Invitation sent to candidate successfully!' };
   },
 
   getInvitations: async () => {
-    const saved = localStorage.getItem(INVITATIONS_KEY);
-    return saved ? JSON.parse(saved) : mockInvitations;
+    try {
+      const res = await api.get('/teams/invitations');
+      if (res.success && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return mockInvitations;
   },
 
   respondInvitation: async (invitationId, accept = true) => {
-    const list = await mockTeamService.getInvitations();
-    const updated = list.map((inv) => inv.id === invitationId ? { ...inv, status: accept ? 'ACCEPTED' : 'REJECTED' } : inv);
-    localStorage.setItem(INVITATIONS_KEY, JSON.stringify(updated));
-    return updated;
+    try {
+      const res = await api.patch(`/teams/invitations/${invitationId}`, {
+        status: accept ? 'ACCEPTED' : 'REJECTED',
+      });
+      if (res.success) return res.data;
+    } catch (e) {
+      // Fallback
+    }
+    return mockInvitations;
   },
 
   getMentorFeedback: async () => {
+    try {
+      const res = await api.get('/feedback');
+      if (res.success && res.data && res.data.length > 0) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
     return mockFeedback;
   },
 
   addMentorFeedback: async (feedback) => {
-    const newEntry = {
-      id: `fb_${Date.now()}`,
-      timestamp: 'Just now',
-      ...feedback
-    };
-    return newEntry;
-  }
+    try {
+      const res = await api.post('/feedback', feedback);
+      if (res.success && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return { id: `fb_${Date.now()}`, timestamp: 'Just now', ...feedback };
+  },
 };
 
 export const mockTaskService = {
   getTasks: async () => {
-    const saved = localStorage.getItem(TASKS_KEY);
-    return saved ? JSON.parse(saved) : mockTasks;
+    try {
+      const res = await api.get('/tasks');
+      if (res.success && res.data && res.data.length > 0) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return mockTasks;
   },
 
   updateTaskStatus: async (taskId, newStatus) => {
-    const list = await mockTaskService.getTasks();
-    const updated = list.map((t) => t.id === taskId ? { ...t, status: newStatus } : t);
-    localStorage.setItem(TASKS_KEY, JSON.stringify(updated));
-    return updated;
+    try {
+      const res = await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
+      if (res.success) {
+        return await mockTaskService.getTasks();
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return mockTasks.map((t) => (t.id === taskId || t._id === taskId ? { ...t, status: newStatus } : t));
   },
 
   addTask: async (taskData) => {
-    const list = await mockTaskService.getTasks();
-    const newTask = {
-      id: `task_${Date.now()}`,
-      status: 'TODO',
-      ...taskData
-    };
-    const updated = [newTask, ...list];
-    localStorage.setItem(TASKS_KEY, JSON.stringify(updated));
-    return updated;
+    try {
+      const res = await api.post('/tasks', taskData);
+      if (res.success) {
+        return await mockTaskService.getTasks();
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return [{ id: `task_${Date.now()}`, status: 'TODO', ...taskData }, ...mockTasks];
   },
 
   getTimeline: async () => {
     return mockTimeline;
-  }
+  },
 };
 
 export const mockSubmissionService = {
   getSubmission: async () => {
-    const saved = localStorage.getItem(SUBMISSION_KEY);
-    return saved ? JSON.parse(saved) : {
-      githubUrl: "https://github.com/karthik-dev/ai-study-planner",
-      liveUrl: "https://study-planner-demo.vercel.app",
-      demoVideoUrl: "",
-      presentationUrl: "https://docs.google.com/presentation/d/mock-slides",
-      description: "Intelligent adaptive syllabus roadmap and automated quiz diagnostic platform.",
-      checklist: {
-        githubRepo: true,
-        deploymentLink: true,
-        projectDescription: true,
-        presentationDeck: true,
-        demoVideo: false,
-        finalTesting: false
-      },
-      status: "DRAFT", // "DRAFT" | "SUBMITTED"
-      submittedAt: null
+    try {
+      const res = await api.get('/submission');
+      if (res.success && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return {
+      githubUrl: 'https://github.com/karthik-dev/ai-study-planner',
+      liveUrl: 'https://study-planner-demo.vercel.app',
+      checklist: { githubRepo: true, deploymentLink: true, projectDescription: true, presentationDeck: true, demoVideo: false, finalTesting: false },
+      status: 'DRAFT',
     };
   },
 
   saveSubmission: async (data) => {
-    localStorage.setItem(SUBMISSION_KEY, JSON.stringify(data));
+    try {
+      const res = await api.put('/submission', data);
+      if (res.success && res.data) return res.data;
+    } catch (e) {}
     return data;
   },
 
   submitProject: async (data) => {
-    const submission = {
-      ...data,
-      status: "SUBMITTED",
-      submittedAt: new Date().toISOString()
-    };
-    localStorage.setItem(SUBMISSION_KEY, JSON.stringify(submission));
-    return submission;
-  }
+    try {
+      const res = await api.post('/submission/submit', data);
+      if (res.success && res.data) return res.data;
+    } catch (e) {}
+    return { ...data, status: 'SUBMITTED', submittedAt: new Date().toISOString() };
+  },
+
+  submitJudgeScore: async (scoreData) => {
+    try {
+      const res = await api.post('/scores', scoreData);
+      if (res.success) return res;
+    } catch (e) {}
+    return { success: true };
+  },
 };
