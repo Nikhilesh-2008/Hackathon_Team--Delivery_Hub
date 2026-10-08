@@ -9,12 +9,18 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "db:seed": "node server/seeds/seed.js",
-    "db:verify": "node server/scripts/verify-models.js"
+    "db:verify": "node server/scripts/verify-models.js",
+    "api:verify": "node server/scripts/verify-routes.js",
+    "server": "node server/index.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
+    "cors": "^2.8.6",
     "dotenv": "^18.0.6",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.52.0",
     "mongoose": "^9.11.1",
     "react": "^19.2.8",
