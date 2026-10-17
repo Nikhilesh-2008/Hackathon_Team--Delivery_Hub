@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 export const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'hackhub_super_secret_jwt_key_development_only_2026', {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };

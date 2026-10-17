@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,6 +23,14 @@ import { JudgeDashboard } from '../pages/JudgeDashboard';
 import { OrganizerDashboard } from '../pages/OrganizerDashboard';
 import { LoginPage } from '../pages/LoginPage';
 
+const RequireAuth = () => {
+  const { user, isLoading } = useAuth();
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Loading your session...</div>;
+  }
+  return user ? <Outlet /> : <Navigate to="/login" replace />;
+};
+
 export const AppRoutes = () => {
   const { activeRole } = useAuth();
 
@@ -40,9 +48,10 @@ export const AppRoutes = () => {
       <Route path="/register" element={<LoginPage />} />
 
       {/* Main App Layout shell */}
-      <Route path="/" element={<AppLayout />}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={renderDashboardByRole()} />
+      <Route element={<RequireAuth />}>
+        <Route path="/" element={<AppLayout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={renderDashboardByRole()} />
         
         {/* Events & Challenges */}
         <Route path="events" element={<DiscoverEvents />} />
@@ -73,7 +82,8 @@ export const AppRoutes = () => {
         <Route path="settings" element={<SettingsPage />} />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
       </Route>
     </Routes>
   );

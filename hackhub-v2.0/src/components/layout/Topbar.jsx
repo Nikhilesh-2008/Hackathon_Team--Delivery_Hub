@@ -10,7 +10,8 @@ import {
   Check,
   ExternalLink,
   Layers,
-  Activity
+  Activity,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Dropdown, DropdownItem } from '../ui/Dropdown';
@@ -19,7 +20,7 @@ import { mockNotifications } from '../../data/reputation';
 import { api } from '../../services/api';
 
 export const Topbar = ({ onMenuClick }) => {
-  const { user, activeRole, switchRole, demoRoles } = useAuth();
+  const { user, activeRole, switchRole, demoRoles, isDemo, logout } = useAuth();
   const [notifications, setNotifications] = useState(mockNotifications);
   const [apiOnline, setApiOnline] = useState(null);
   const navigate = useNavigate();
@@ -46,6 +47,11 @@ export const Topbar = ({ onMenuClick }) => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-[#E2E8F0] px-4 sm:px-6 py-3">
       <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
@@ -63,7 +69,7 @@ export const Topbar = ({ onMenuClick }) => {
             <span className="text-xs font-semibold text-slate-500">Mode:</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-              Demo Mode ({activeRole})
+              {isDemo ? `Demo Mode (${activeRole})` : `Account Mode (${activeRole})`}
             </span>
 
             {/* Live API Health Indicator */}
@@ -96,7 +102,7 @@ export const Topbar = ({ onMenuClick }) => {
           </NavLink>
 
           {/* Demo Role Switcher Dropdown */}
-          <Dropdown
+          {isDemo ? <Dropdown
             trigger={
               <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-xs font-medium text-[#172033] border border-slate-200 transition-colors cursor-pointer">
                 <UserCheck size={14} className="text-[#4F46E5]" />
@@ -125,7 +131,21 @@ export const Topbar = ({ onMenuClick }) => {
                 )}
               </DropdownItem>
             ))}
-          </Dropdown>
+          </Dropdown> : (
+            <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-xs font-medium text-[#172033] border border-slate-200">
+              {activeRole} account
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors"
+            aria-label="Log out"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Log out</span>
+          </button>
 
           {/* Notification Center Dropdown */}
           <Dropdown

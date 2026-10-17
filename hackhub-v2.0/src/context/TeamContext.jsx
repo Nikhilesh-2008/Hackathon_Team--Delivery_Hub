@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { mockTeamService, mockTaskService, mockSubmissionService } from '../services/mockTeamService';
 import { useToast } from './ToastContext';
+import { useAuth } from './AuthContext';
 
 const TeamContext = createContext(null);
 
@@ -11,23 +12,38 @@ export const TeamProvider = ({ children }) => {
   const [invitations, setInvitations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const { showSuccess } = useToast();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setCurrentTeam(null);
+      setTasks([]);
+      setSubmission(null);
+      setInvitations([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
-    const t = await mockTeamService.getCurrentTeam();
-    const tsk = await mockTaskService.getTasks();
-    const sub = await mockSubmissionService.getSubmission();
-    const inv = await mockTeamService.getInvitations();
-    setCurrentTeam(t);
-    setTasks(tsk);
-    setSubmission(sub);
-    setInvitations(inv);
-    setIsLoading(false);
-  };
+    try {
+      const [t, tsk, sub, inv] = await Promise.all([
+        mockTeamService.getCurrentTeam(),
+        mockTaskService.getTasks(),
+        mockSubmissionService.getSubmission(),
+        mockTeamService.getInvitations()
+      ]);
+      setCurrentTeam(t);
+      setTasks(tsk);
+      setSubmission(sub);
+      setInvitations(inv);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!isAuthLoading) loadData();
+  }, [isAuthLoading, loadData]);
 
   const updateTaskStatus = async (taskId, newStatus) => {
     const updated = await mockTaskService.updateTaskStatus(taskId, newStatus);

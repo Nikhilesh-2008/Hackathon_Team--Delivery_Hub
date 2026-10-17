@@ -5,7 +5,9 @@ import { Team } from '../models/Team.js';
 export const getTasks = async (req, res, next) => {
   try {
     const { teamId } = req.query;
-    const filter = teamId ? { team: teamId } : {};
+    const memberships = await Team.find({ $or: [{ captain: req.user._id }, { 'members.user': req.user._id }] }).select('_id');
+    const teamIds = memberships.map((team) => team._id);
+    const filter = teamId ? { team: { $eq: teamId, $in: teamIds } } : { team: { $in: teamIds } };
     const tasks = await Task.find(filter).sort({ createdAt: -1 });
     res.status(200).json({ success: true, count: tasks.length, data: tasks });
   } catch (error) {
@@ -17,14 +19,17 @@ export const getTasks = async (req, res, next) => {
 export const createTask = async (req, res, next) => {
   try {
     const { title, owner, priority, deadline, tag, description, teamId } = req.body;
+    if (!teamId || !(await Team.exists({ _id: teamId, $or: [{ captain: req.user._id }, { 'members.user': req.user._id }] }))) {
+      return res.status(403).json({ success: false, message: 'You must belong to the selected team to add a task' });
+    }
     const task = await Task.create({
       title,
-      owner: owner || 'Karthik',
+      owner: owner || 'Unassigned',
       priority: priority || 'Medium',
-      deadline: deadline || 'Tomorrow',
+      deadline: deadline || 'Soon',
       tag: tag || 'General',
       description: description || '',
-      team: teamId || null,
+      team: teamId,
       status: 'TODO',
     });
 
@@ -38,8 +43,12 @@ export const createTask = async (req, res, next) => {
 export const updateTaskStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
-    const task = await Task.findByIdAndUpdate(
-      req.params.id,
+    if (!['TODO', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid task status' });
+    }
+    const memberships = await Team.find({ $or: [{ captain: req.user._id }, { 'members.user': req.user._id }] }).select('_id');
+    const task = await Task.findOneAndUpdate(
+      { _id: req.params.id, team: { $in: memberships.map((team) => team._id) } },
       { status },
       { new: true, runValidators: true }
     );

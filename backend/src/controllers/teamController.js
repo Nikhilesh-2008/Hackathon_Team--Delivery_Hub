@@ -1,7 +1,7 @@
 import { Team } from '../models/Team.js';
-import { Task } from '../models/Task.js';
 import { TeamInvitation } from '../models/TeamInvitation.js';
 import { Notification } from '../models/Notification.js';
+import { User } from '../models/User.js';
 
 // GET /api/teams/my-team
 export const getMyTeam = async (req, res, next) => {
@@ -12,11 +12,6 @@ export const getMyTeam = async (req, res, next) => {
         { 'members.user': req.user?._id },
       ],
     }).populate('captain', 'name email avatar');
-
-    if (!team) {
-      // Return default active team for demonstration if user has no assigned team
-      team = await Team.findOne().populate('captain', 'name email avatar');
-    }
 
     res.status(200).json({ success: true, data: team });
   } catch (error) {
@@ -68,15 +63,27 @@ export const sendInvitation = async (req, res, next) => {
   try {
     const { receiverId, receiverName, message, teamId } = req.body;
 
-    const team = teamId ? await Team.findById(teamId) : await Team.findOne();
+    const team = teamId
+      ? await Team.findOne({ _id: teamId, $or: [{ captain: req.user._id }, { 'members.user': req.user._id }] })
+      : await Team.findOne({ $or: [{ captain: req.user._id }, { 'members.user': req.user._id }] });
+    if (!team) return res.status(404).json({ success: false, message: 'Create or join a team before sending invitations' });
+    if (!receiverId || String(receiverId) === String(req.user._id)) {
+      return res.status(400).json({ success: false, message: 'A valid teammate recipient is required' });
+    }
+    if (!(await User.exists({ _id: receiverId }))) {
+      return res.status(404).json({ success: false, message: 'Invitation recipient was not found' });
+    }
+    if (team.members.some((member) => String(member.user) === String(receiverId))) {
+      return res.status(409).json({ success: false, message: 'This user is already on the team' });
+    }
 
     const invitation = await TeamInvitation.create({
-      sender: req.user ? req.user._id : '660000000000000000000001',
-      senderName: req.user ? req.user.name : 'Karthik',
+      sender: req.user._id,
+      senderName: req.user.name,
       receiver: receiverId,
       receiverName: receiverName || 'Peer Developer',
-      team: team ? team._id : null,
-      teamName: team ? team.name : 'Team Nova',
+      team: team._id,
+      teamName: team.name,
       message: message || 'Hey! Would love to invite you to our squad.',
     });
 
@@ -85,7 +92,7 @@ export const sendInvitation = async (req, res, next) => {
       user: receiverId,
       type: 'team',
       title: 'New Team Invitation',
-      message: `${req.user ? req.user.name : 'Team Captain'} invited you to join ${team ? team.name : 'Team Nova'}.`,
+      message: `${req.user.name} invited you to join ${team.name}.`,
       link: '/team',
     });
 
@@ -118,12 +125,19 @@ export const respondInvitation = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Invitation not found' });
     }
 
+    if (String(invitation.receiver) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: 'Only the invited user can respond to this invitation' });
+    }
+    if (!['ACCEPTED', 'REJECTED'].includes(status) || invitation.status !== 'PENDING') {
+      return res.status(400).json({ success: false, message: 'Invitation response is invalid or already recorded' });
+    }
+
     invitation.status = status;
     await invitation.save();
 
     if (status === 'ACCEPTED' && invitation.team) {
       await Team.findByIdAndUpdate(invitation.team, {
-        $push: {
+        $addToSet: {
           members: {
             user: invitation.receiver,
             name: invitation.receiverName,

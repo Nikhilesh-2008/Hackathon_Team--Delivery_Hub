@@ -2,6 +2,8 @@
 
 This document defines the REST API contract between the HackHub React frontend and Express backend.
 
+All routes below are mounted at the same `/api` paths. Protected routes accept the frontend's existing Bearer JWT (or the HTTP-only auth cookie); keep their paths and `{ success, data, message }` envelope stable when extending controllers. Registration creates Participant accounts; privileged roles are assigned administratively.
+
 ---
 
 ## 1. Authentication (`/api/auth`)
@@ -67,14 +69,15 @@ This document defines the REST API contract between the HackHub React frontend a
 ## 4. Teams & Invitations (`/api/teams`)
 
 ### `GET /api/teams/my-team`
-- **Auth**: Optional / Bearer Token
+- **Auth**: Bearer Token
 - **Response `200`**: Active team workspace object including sprint progress, members, technical decisions, and team chat.
 
 ### `POST /api/teams/invitations`
-- **Auth**: None / Bearer Token
+- **Auth**: Bearer Token; sender must belong to the team
 - **Body**: `{ "receiverId": "...", "receiverName": "...", "message": "..." }`
 
 ### `PATCH /api/teams/invitations/:id`
+- **Auth**: Bearer Token; only the invited receiver can respond
 - **Body**: `{ "status": "ACCEPTED" }` or `{ "status": "REJECTED" }`
 
 ---
@@ -82,6 +85,7 @@ This document defines the REST API contract between the HackHub React frontend a
 ## 5. Tasks & Sprints (`/api/tasks`)
 
 ### `GET /api/tasks`
+- **Auth**: Bearer Token; results are limited to the user's teams
 - **Query Params**: `?teamId=...`
 - **Response `200`**: Array of tasks across `TODO`, `IN_PROGRESS`, `BLOCKED`, `COMPLETED`.
 
@@ -103,10 +107,12 @@ This document defines the REST API contract between the HackHub React frontend a
 - **Body**: `{ status: "SUBMITTED" }`
 
 ### `POST /api/scores`
+- **Auth**: Judge or Admin
 - **Body**: `{ submissionId, teamName, innovation: 22, technical: 28, ux: 18, impact: 23, remarks }`
 - **Note**: Total score (out of 100) is calculated and validated on the backend.
 
 ### `GET /api/feedback` & `POST /api/feedback`
+- **Auth**: Bearer Token; creating feedback requires Mentor or Admin
 - **Body**: `{ teamId, title, comment, rating, mentorName }`
 
 ### `GET /api/notifications` & `PATCH /api/notifications/read-all`

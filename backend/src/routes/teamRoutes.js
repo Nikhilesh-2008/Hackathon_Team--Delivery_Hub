@@ -4,11 +4,11 @@ import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.get('/my-team', getMyTeam);
-router.get('/', getAllTeams);
+router.get('/my-team', protect, getMyTeam);
+router.get('/', protect, getAllTeams);
 router.post('/', protect, createTeam);
-router.post('/invitations', sendInvitation);
-router.get('/invitations', getInvitations);
-router.patch('/invitations/:id', respondInvitation);
+router.post('/invitations', protect, sendInvitation);
+router.get('/invitations', protect, getInvitations);
+router.patch('/invitations/:id', protect, respondInvitation);
 
 export default router;

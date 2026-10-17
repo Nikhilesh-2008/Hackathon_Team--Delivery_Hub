@@ -1,5 +1,5 @@
-import { api } from './api';
 import { currentUser, demoRoles } from '../data/users';
+import { api } from './api';
 
 const AUTH_STORAGE_KEY = 'hackhub_current_user';
 const ROLE_STORAGE_KEY = 'hackhub_active_role';
@@ -7,45 +7,9 @@ const TOKEN_KEY = 'hackhub_jwt_token';
 
 export const mockAuthService = {
   getCurrentUser: async () => {
-    try {
-      const res = await api.get('/auth/me');
-      if (res.success && res.data) {
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(res.data));
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback gracefully to local stored user
-    }
+    if (localStorage.getItem(TOKEN_KEY)) return null;
     const saved = localStorage.getItem(AUTH_STORAGE_KEY);
     return saved ? JSON.parse(saved) : currentUser;
-  },
-
-  login: async (email, password) => {
-    try {
-      const res = await api.post('/auth/login', { email, password });
-      if (res.success && res.token) {
-        localStorage.setItem(TOKEN_KEY, res.token);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(res.data));
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return currentUser;
-  },
-
-  register: async (userData) => {
-    try {
-      const res = await api.post('/auth/register', userData);
-      if (res.success && res.token) {
-        localStorage.setItem(TOKEN_KEY, res.token);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(res.data));
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return currentUser;
   },
 
   updateCurrentUser: async (updatedData) => {

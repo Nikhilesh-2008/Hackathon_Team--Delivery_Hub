@@ -1,30 +1,28 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layers, ArrowRight, User, ShieldCheck, GraduationCap, Lock, Mail, Sparkles, UserPlus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Layers, Lock, Mail } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 export const LoginPage = () => {
-  const { switchRole, login, register } = useAuth();
+  const { login, register } = useAuth();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [mode, setMode] = useState('demo'); // 'demo' | 'login' | 'register'
+  const [mode, setMode] = useState(location.pathname === '/register' ? 'register' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState('Participant');
   const [specialization, setSpecialization] = useState('Backend Developer');
   const [loading, setLoading] = useState(false);
 
-  const handleSelectRole = (selectedRole) => {
-    switchRole(selectedRole);
-    navigate('/dashboard');
-  };
+  useEffect(() => {
+    setMode(location.pathname === '/register' ? 'register' : 'login');
+  }, [location.pathname]);
 
   const handleRealLogin = async (e) => {
     e.preventDefault();
@@ -52,7 +50,7 @@ export const LoginPage = () => {
     }
     setLoading(true);
     try {
-      await register({ name, email, password, role, specialization });
+      await register({ name, email, password, specialization });
       showSuccess('Account created successfully!');
       navigate('/dashboard');
     } catch (err) {
@@ -82,14 +80,6 @@ export const LoginPage = () => {
         <div className="flex items-center justify-center bg-slate-200/70 p-1 rounded-xl gap-1 text-xs font-semibold">
           <button
             type="button"
-            onClick={() => setMode('demo')}
-            className={`flex-1 py-1.5 rounded-lg transition-all ${
-              mode === 'demo' ? 'bg-white text-[#172033] shadow-xs' : 'text-slate-600 hover:text-[#172033]'
-            }`}
-          >
-            Demo Mode
-          </button>
-          <button
             type="button"
             onClick={() => setMode('login')}
             className={`flex-1 py-1.5 rounded-lg transition-all ${
@@ -109,86 +99,7 @@ export const LoginPage = () => {
           </button>
         </div>
 
-        {/* Mode 1: Quick Demo Personas */}
-        {mode === 'demo' && (
-          <Card className="p-5 text-left space-y-3.5 shadow-sm">
-            <div className="pb-2.5 border-b border-[#E2E8F0] flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-[#172033]">Instant Persona Entry</h2>
-                <p className="text-[11px] text-[#64748B]">Click any role to enter with mock credentials</p>
-              </div>
-              <Badge variant="primary" size="sm">One-Click</Badge>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                onClick={() => handleSelectRole('Participant')}
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 transition-colors text-left group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
-                    <User size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm font-bold text-[#172033]">Continue as Participant</p>
-                    <p className="text-[11px] text-slate-500">Karthik (Backend Developer · Team Nova)</p>
-                  </div>
-                </div>
-                <ArrowRight size={16} className="text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => handleSelectRole('Mentor')}
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-left group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
-                    <GraduationCap size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm font-bold text-[#172033]">Continue as Mentor</p>
-                    <p className="text-[11px] text-slate-500">Dr. Arvind Rao (Feedback & Blockers)</p>
-                  </div>
-                </div>
-                <ArrowRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => handleSelectRole('Judge')}
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-left group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center">
-                    <ShieldCheck size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm font-bold text-[#172033]">Continue as Industry Judge</p>
-                    <p className="text-[11px] text-slate-500">Siddharth Sen (Rubric & Scoring)</p>
-                  </div>
-                </div>
-                <ArrowRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => handleSelectRole('Organizer')}
-                className="w-full flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-left group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
-                    <Layers size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm font-bold text-[#172033]">Continue as Organizer</p>
-                    <p className="text-[11px] text-slate-500">Aakash Mehta (Event & Track Manager)</p>
-                  </div>
-                </div>
-                <ArrowRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            </div>
-          </Card>
-        )}
-
-        {/* Mode 2: Real JWT Email & Password Login */}
+        {/* Real JWT Email & Password Login */}
         {mode === 'login' && (
           <Card className="p-5 text-left space-y-4 shadow-sm">
             <div className="pb-2 border-b border-[#E2E8F0]">
@@ -214,6 +125,7 @@ export const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                minLength={8}
                 required
               />
 
@@ -230,12 +142,12 @@ export const LoginPage = () => {
           </Card>
         )}
 
-        {/* Mode 3: Real JWT User Registration */}
+        {/* Real JWT User Registration */}
         {mode === 'register' && (
           <Card className="p-5 text-left space-y-4 shadow-sm">
             <div className="pb-2 border-b border-[#E2E8F0]">
               <h2 className="text-sm font-bold text-[#172033]">Create Student Profile</h2>
-              <p className="text-[11px] text-[#64748B]">Join hackathons & build with student squads</p>
+              <p className="text-[11px] text-[#64748B]">New accounts start as Participants. Join hackathons & build with student squads.</p>
             </div>
 
             <form onSubmit={handleRealRegister} className="space-y-3">
@@ -264,24 +176,11 @@ export const LoginPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                minLength={8}
                 required
               />
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-xs font-semibold text-[#172033] mb-1">Role</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="w-full bg-white border border-[#E2E8F0] rounded-xl px-2.5 py-2 text-xs text-[#172033] focus:outline-none focus:border-[#4F46E5]"
-                  >
-                    <option value="Participant">Participant</option>
-                    <option value="Mentor">Mentor</option>
-                    <option value="Judge">Judge</option>
-                    <option value="Organizer">Organizer</option>
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 gap-2.5">
                 <div>
                   <label className="block text-xs font-semibold text-[#172033] mb-1">Specialization</label>
                   <select

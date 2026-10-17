@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 
 export const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hackhub';
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error('MONGODB_URI must be configured before starting the API');
   try {
     const conn = await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 4000,
@@ -9,8 +10,7 @@ export const connectDB = async () => {
     console.log(`[MongoDB] Connected successfully: ${conn.connection.host}/${conn.connection.name}`);
     return true;
   } catch (error) {
-    console.warn(`[MongoDB] Connection notice: Unable to connect to ${uri}. Error: ${error.message}`);
-    console.warn(`[MongoDB] Operating in flexible mode. Server will remain responsive.`);
-    return false;
+    console.error(`[MongoDB] Connection failed: ${error.message}`);
+    throw error;
   }
 };
