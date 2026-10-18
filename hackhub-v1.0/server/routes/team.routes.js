@@ -35,6 +35,7 @@ router.patch(
 router.get(
   '/teams/:teamId/members',
   requireAuth,
+  requireTeamMembership,
   teamController.getTeamMembers
 );
 

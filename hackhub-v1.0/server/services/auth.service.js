@@ -4,8 +4,10 @@ import { hashPassword, comparePassword, hashToken, generateAuthToken, generateRa
 import { AppError } from '../utils/response.js';
 
 export const register = async ({ name, email, password, college, graduationYear, role }) => {
-  if (role && role !== 'PARTICIPANT') {
-    throw new AppError('FORBIDDEN', 'Direct registration is strictly limited to PARTICIPANT role', 403);
+  const allowedRoles = ['PARTICIPANT', 'MENTOR', 'JUDGE'];
+  const userRole = (role || 'PARTICIPANT').toUpperCase();
+  if (!allowedRoles.includes(userRole)) {
+    throw new AppError('FORBIDDEN', `Registration is limited to roles: ${allowedRoles.join(', ')}`, 403);
   }
 
   const normalizedEmail = email.toLowerCase().trim();
@@ -15,26 +17,40 @@ export const register = async ({ name, email, password, college, graduationYear,
   }
 
   const passwordHash = await hashPassword(password);
-  const user = await User.create({
-    name,
-    email: normalizedEmail,
-    passwordHash,
-    role: 'PARTICIPANT',
-    college: college || '',
-    graduationYear: graduationYear || '',
-    isActive: true,
-    emailVerified: false,
-  });
+  let user;
+  try {
+    user = await User.create({
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      role: userRole,
+      college: college || '',
+      graduationYear: graduationYear || '',
+      isActive: true,
+      emailVerified: false,
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      throw new AppError('CONFLICT', 'An account with this email address already exists', 409);
+    }
+    throw err;
+  }
 
-  // Create initialized profile
-  const profile = await Profile.create({
-    userId: user._id,
-    specialization: 'Generalist',
-    skills: [],
-    interests: [],
-    availability: '8-10 hrs/week',
-    discoveryConsent: true,
-  });
+  // Create initialized profile with rollback safety
+  let profile;
+  try {
+    profile = await Profile.create({
+      userId: user._id,
+      specialization: 'Generalist',
+      skills: [],
+      interests: [],
+      availability: '8-10 hrs/week',
+      discoveryConsent: true,
+    });
+  } catch (profileErr) {
+    await User.findByIdAndDelete(user._id);
+    throw profileErr;
+  }
 
   // Create session
   const refreshToken = generateRandomToken(32);

@@ -8,7 +8,7 @@ import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Tabs } from '../components/ui/Tabs';
 import { useTeam } from '../context/TeamContext';
-import { mockTimeline } from '../data/teams';
+import { useAuth } from '../context/AuthContext';
 import {
   Plus,
   CheckCircle2,
@@ -21,16 +21,18 @@ import {
 } from 'lucide-react';
 
 export const TasksTimeline = () => {
-  const { tasks, updateTaskStatus, addTask } = useTeam();
+  const { tasks, currentTeam, updateTaskStatus, addTask } = useTeam();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('board');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // New task form state
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskOwner, setNewTaskOwner] = useState('Karthik');
-  const [newTaskPriority, setNewTaskPriority] = useState('High');
-  const [newTaskDeadline, setNewTaskDeadline] = useState('Tomorrow');
+  const [newTaskOwner, setNewTaskOwner] = useState(user?.id || '');
+  const [newTaskPriority, setNewTaskPriority] = useState('high');
+  const [newTaskDeadline, setNewTaskDeadline] = useState('');
   const [newTaskTag, setNewTaskTag] = useState('Backend');
+  const [formError, setFormError] = useState('');
 
   const columns = [
     { id: 'TODO', title: 'To Do', color: 'border-slate-300 bg-slate-50/60' },
@@ -39,21 +41,26 @@ export const TasksTimeline = () => {
     { id: 'COMPLETED', title: 'Completed', color: 'border-emerald-300 bg-emerald-50/30' }
   ];
 
-  const handleCreateTask = (e) => {
+  const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
-
-    addTask({
-      title: newTaskTitle.trim(),
-      owner: newTaskOwner,
-      priority: newTaskPriority,
-      deadline: newTaskDeadline,
-      tag: newTaskTag,
-      description: 'Sprint milestone deliverable'
-    });
-
-    setNewTaskTitle('');
-    setIsAddModalOpen(false);
+    setFormError('');
+    const owner = currentTeam?.members?.find((member) => String(member.id) === String(newTaskOwner));
+    try {
+      await addTask({
+        title: newTaskTitle.trim(),
+        ownerId: owner?.id,
+        ownerName: owner?.name || user?.name || 'Unassigned',
+        priority: newTaskPriority,
+        targetDate: newTaskDeadline || undefined,
+        tag: newTaskTag,
+        description: 'Sprint milestone deliverable',
+      });
+      setNewTaskTitle('');
+      setIsAddModalOpen(false);
+    } catch (error) {
+      setFormError(error.message || 'Could not create this task.');
+    }
   };
 
   return (
@@ -160,31 +167,31 @@ export const TasksTimeline = () => {
           </div>
 
           <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-            {mockTimeline.map((item, idx) => (
+            {[...tasks].sort((a, b) => new Date(a.targetDate || 0) - new Date(b.targetDate || 0)).map((item, idx) => (
               <div key={idx} className="relative">
                 {/* Node icon */}
                 <span className={`absolute -left-[27px] top-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white ${
-                  item.status === 'completed' ? 'bg-emerald-500 text-white' :
-                  item.status === 'in_progress' ? 'bg-indigo-600 text-white' : 'bg-slate-300 text-slate-600'
+                  item.status === 'COMPLETED' ? 'bg-emerald-500 text-white' :
+                  item.status === 'IN_PROGRESS' ? 'bg-indigo-600 text-white' : 'bg-slate-300 text-slate-600'
                 }`}>
-                  {item.status === 'completed' ? '✓' : idx + 1}
+                  {item.status === 'COMPLETED' ? '✓' : idx + 1}
                 </span>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-indigo-600">{item.day} · {item.date}</span>
+                    <span className="text-xs font-bold text-indigo-600">Target · {item.deadline || 'No deadline'}</span>
                     <Badge
                       variant={
-                        item.status === 'completed' ? 'success' :
-                        item.status === 'in_progress' ? 'primary' : 'default'
+                        item.status === 'COMPLETED' ? 'success' :
+                        item.status === 'IN_PROGRESS' ? 'primary' : 'default'
                       }
                       size="sm"
                     >
-                      {item.status === 'completed' ? 'Delivered' : item.status === 'in_progress' ? 'In Progress' : 'Upcoming'}
+                      {item.status === 'COMPLETED' ? 'Delivered' : item.status === 'IN_PROGRESS' ? 'In Progress' : item.status}
                     </Badge>
                   </div>
                   <h4 className="text-sm font-bold text-[#172033]">{item.title}</h4>
-                  <p className="text-xs text-[#64748B]">{item.desc}</p>
+                  <p className="text-xs text-[#64748B]">{item.description || 'Sprint task'}</p>
                 </div>
               </div>
             ))}
@@ -200,6 +207,7 @@ export const TasksTimeline = () => {
         description="Assign deliverable to a team member with deadline."
       >
         <form onSubmit={handleCreateTask} className="space-y-4">
+          {formError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{formError}</p>}
           <Input
             label="Task Name"
             value={newTaskTitle}
@@ -216,10 +224,7 @@ export const TasksTimeline = () => {
                 onChange={(e) => setNewTaskOwner(e.target.value)}
                 className="w-full bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm text-[#172033] focus:outline-none focus:border-[#4F46E5]"
               >
-                <option value="Karthik">Karthik (Backend)</option>
-                <option value="Rahul Sharma">Rahul (Frontend)</option>
-                <option value="Ananya Iyer">Ananya (UI/UX)</option>
-                <option value="Vivek Patel">Vivek (AI/ML)</option>
+                {currentTeam?.members?.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
               </select>
             </div>
 
@@ -230,9 +235,9 @@ export const TasksTimeline = () => {
                 onChange={(e) => setNewTaskPriority(e.target.value)}
                 className="w-full bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm text-[#172033] focus:outline-none focus:border-[#4F46E5]"
               >
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
             </div>
           </div>
@@ -240,6 +245,7 @@ export const TasksTimeline = () => {
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Deadline"
+              type="date"
               value={newTaskDeadline}
               onChange={(e) => setNewTaskDeadline(e.target.value)}
               placeholder="e.g. Oct 14 · 6 PM"

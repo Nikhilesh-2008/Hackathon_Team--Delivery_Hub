@@ -110,7 +110,14 @@ export const updateEvent = async (eventId, user, updateData) => {
     throw new AppError('FORBIDDEN', 'Only designated event organizer or admin can update event settings', 403);
   }
 
-  Object.assign(event, updateData);
+  const editableFields = [
+    'name', 'description', 'theme', 'categories', 'technologies', 'mode', 'location',
+    'prizePool', 'minTeamSize', 'maxTeamSize', 'registrationDeadline', 'startDate',
+    'endDate', 'submissionDeadline', 'bannerGradient',
+  ];
+  for (const field of editableFields) {
+    if (updateData[field] !== undefined) event[field] = updateData[field];
+  }
   await event.save();
 
   await AuditLog.create({

@@ -3,47 +3,71 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Menu,
   Bell,
-  Sparkles,
   Award,
-  ChevronDown,
-  UserCheck,
-  Check,
-  ExternalLink,
-  Layers,
-  Activity
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Dropdown, DropdownItem } from '../ui/Dropdown';
+import { Dropdown } from '../ui/Dropdown';
 import { Badge } from '../ui/Badge';
-import { mockNotifications } from '../../data/reputation';
 import { api } from '../../services/api';
 
 export const Topbar = ({ onMenuClick }) => {
-  const { user, activeRole, switchRole, demoRoles } = useAuth();
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { user, activeRole, logout } = useAuth();
+  const [notifications, setNotifications] = useState([]);
   const [apiOnline, setApiOnline] = useState(null);
   const navigate = useNavigate();
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
+
   useEffect(() => {
+    let mounted = true;
     const checkApiHealth = async () => {
       try {
         const res = await api.get('/health');
         if (res.success) {
-          setApiOnline(true);
+          if (mounted) setApiOnline(true);
         } else {
-          setApiOnline(false);
+          if (mounted) setApiOnline(false);
         }
       } catch (err) {
-        setApiOnline(false);
+        if (mounted) setApiOnline(false);
+      }
+    };
+    const loadNotifications = async () => {
+      if (!user) return;
+      try {
+        const response = await api.get('/notifications');
+        if (mounted) setNotifications((response.data?.notifications || []).map((item) => ({
+          ...item,
+          id: item._id || item.id,
+          read: item.isRead,
+          time: item.createdAt ? new Date(item.createdAt).toLocaleString() : '',
+        })));
+      } catch (error) {
+        if (mounted) setNotifications([]);
       }
     };
     checkApiHealth();
-  }, []);
+    loadNotifications();
+    return () => { mounted = false; };
+  }, [user?.id]);
 
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    const unread = notifications.filter((item) => !item.read);
+    try {
+      await Promise.all(unread.map((item) => api.patch(`/notifications/${item.id}/read`, {})));
+      setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+    } catch (error) {
+      console.warn('[Topbar] Could not mark notifications as read:', error.message);
+    }
   };
 
   return (
@@ -60,10 +84,8 @@ export const Topbar = ({ onMenuClick }) => {
           </button>
 
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Mode:</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-              Demo Mode ({activeRole})
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs font-medium">
+              {user?.name || 'Account'} · {activeRole}
             </span>
 
             {/* Live API Health Indicator */}
@@ -91,41 +113,13 @@ export const Topbar = ({ onMenuClick }) => {
             title="Hackathon Reputation Score"
           >
             <Award size={15} />
-            <span>{user?.reputation || 1250}</span>
+            <span>{user?.reputation ?? 0}</span>
             <span className="text-[10px] text-indigo-400 font-normal hidden sm:inline">pts</span>
           </NavLink>
 
-          {/* Demo Role Switcher Dropdown */}
-          <Dropdown
-            trigger={
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-xs font-medium text-[#172033] border border-slate-200 transition-colors cursor-pointer">
-                <UserCheck size={14} className="text-[#4F46E5]" />
-                <span className="hidden sm:inline">Role:</span>
-                <span className="font-semibold">{activeRole}</span>
-                <ChevronDown size={14} className="text-slate-500" />
-              </button>
-            }
-          >
-            <div className="px-3 py-2 border-b border-[#E2E8F0] bg-slate-50 rounded-t-xl">
-              <p className="text-xs font-bold text-[#172033]">Switch Demo Persona</p>
-              <p className="text-[10px] text-[#64748B]">Test role-specific workflows</p>
-            </div>
-            {demoRoles.map((roleObj) => (
-              <DropdownItem
-                key={roleObj.id}
-                onClick={() => switchRole(roleObj.role)}
-                className="justify-between"
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium text-xs text-[#172033]">{roleObj.name}</span>
-                  <span className="text-[10px] text-[#64748B]">{roleObj.badge}</span>
-                </div>
-                {activeRole === roleObj.role && (
-                  <Check size={14} className="text-[#4F46E5]" />
-                )}
-              </DropdownItem>
-            ))}
-          </Dropdown>
+          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50" aria-label="Sign out">
+            <LogOut size={15} /> <span className="hidden sm:inline">Sign out</span>
+          </button>
 
           {/* Notification Center Dropdown */}
           <Dropdown
@@ -155,6 +149,7 @@ export const Topbar = ({ onMenuClick }) => {
               )}
             </div>
             <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+              {notifications.length === 0 && <p className="p-4 text-center text-xs text-slate-500">No notifications yet.</p>}
               {notifications.map((n) => (
                 <div
                   key={n.id}

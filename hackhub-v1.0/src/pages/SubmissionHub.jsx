@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
@@ -24,22 +24,35 @@ export const SubmissionHub = () => {
   const { submission, updateSubmission, submitProject } = useTeam();
 
   const [formData, setFormData] = useState({
-    githubUrl: submission?.githubUrl || "https://github.com/karthik-dev/ai-study-planner",
-    liveUrl: submission?.liveUrl || "https://study-planner-demo.vercel.app",
-    demoVideoUrl: submission?.demoVideoUrl || "https://youtube.com/watch?v=demo-karthik",
-    presentationUrl: submission?.presentationUrl || "https://docs.google.com/presentation/d/mock-slides",
-    description: submission?.description || "Intelligent adaptive syllabus roadmap and automated quiz diagnostic platform.",
+    githubUrl: '',
+    liveUrl: '',
+    demoVideoUrl: '',
+    presentationUrl: '',
+    description: '',
     checklist: submission?.checklist || {
-      githubRepo: true,
-      deploymentLink: true,
-      projectDescription: true,
-      presentationDeck: true,
-      demoVideo: true,
-      finalTesting: true
+      githubRepo: false,
+      deploymentLink: false,
+      projectDescription: false,
+      presentationDeck: false,
+      demoVideo: false,
+      finalTesting: false
     }
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (!submission) return;
+    setFormData({
+      githubUrl: submission.githubUrl || '',
+      liveUrl: submission.liveUrl || '',
+      demoVideoUrl: submission.demoVideoUrl || '',
+      presentationUrl: submission.presentationUrl || '',
+      description: submission.description || '',
+      checklist: submission.checklist || {},
+    });
+  }, [submission]);
 
   const checklistItems = [
     { key: 'githubRepo', label: 'Public GitHub Repository with README' },
@@ -64,14 +77,25 @@ export const SubmissionHub = () => {
   };
 
   const handleSaveDraft = async () => {
-    await updateSubmission(formData);
+    setFormError('');
+    try {
+      await updateSubmission(formData);
+    } catch (error) {
+      setFormError(error.message || 'Unable to save this draft.');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await submitProject(formData);
-    setIsSubmitting(false);
+    setFormError('');
+    try {
+      await submitProject(formData);
+    } catch (error) {
+      setFormError(error.message || 'Unable to submit this project.');
+    } finally {
+      setIsSubmitting(false);
+    }
 
     // Trigger celebratory confetti
     confetti({
@@ -153,6 +177,7 @@ export const SubmissionHub = () => {
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</div>}
           <Input
             label="GitHub Repository URL (Mandatory)"
             icon={Github}

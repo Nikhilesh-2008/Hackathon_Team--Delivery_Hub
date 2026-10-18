@@ -1,57 +1,51 @@
-# HackHub — Hackathon Team and Delivery Hub
+# HackHub v1.0
 
-A clean, modern React web application built for college engineering students to discover hackathons, assemble compatible teams with AI-powered matching, manage sprint deliverables, and review guidelines with an interactive Rulebook AI assistant.
+HackHub helps students discover hackathons, find teammates, coordinate project work, and submit deliverables. This folder is the v1 application and canonical backend workspace.
 
----
+## Stack
 
-## ✨ Key Features
+- Frontend: React 19, React Router, Vite, Tailwind CSS
+- API: Node.js, Express, JSON REST endpoints under `/api`
+- Database: MongoDB with Mongoose models in `server/models/`
+- Authentication: bcrypt password hashing, JWT access token, and persisted sessions
 
-- 🎯 **Hackathon & Challenge Discovery**: Multi-track search with filtering by AI, Web, Cybersecurity, and IoT.
-- 🤝 **Intelligent Team Finder**: Natural language candidate search and compatibility scoring with "Why this person?" reasoning.
-- 📊 **Team Sprint Workspace**: Real-time mock task Kanban board, milestone timeline, and architectural decision logger.
-- 🚀 **Submission Hub**: Comprehensive checklist validation, GitHub & demo link collection, and celebratory submission effects.
-- 🤖 **Rulebook & AI Assistant**: Mock RAG assistant answering question prompts with exact section citations.
-- ⏱️ **AI Sprint Delivery Planner**: Velocity risk calculation, critical path schedule optimizer, and interactive proposal approval flow.
-- 🏆 **Reputation Scoring**: Transparent point history and badge breakdown across past hackathons.
-- 🎭 **Interactive Demo Role Switcher**: Test role-specific dashboards for **Participants**, **Mentors**, **Judges**, and **Organizers** with zero backend setup.
+## Run locally
 
----
+1. Install the v1 dependencies:
 
-## 🛠️ Tech Stack
+   ```bash
+   npm install
+   ```
 
-- **Framework**: React 19 + JavaScript + Vite
-- **Routing**: React Router v7 (`react-router-dom`)
-- **Styling**: Tailwind CSS v4 (Design tokens: `#F8FAFC`, `#172033`, `#4F46E5`, rounded 12px/14px/16px corners)
-- **Icons**: Lucide React
-- **Mock State**: React Context API (`AuthContext`, `TeamContext`, `ToastContext`) + LocalStorage persistence
+2. Copy `.env.example` to `.env`. Set `JWT_SECRET` to a private random value. Set `MONGODB_URI` to your local MongoDB or team database. Never commit `.env`.
 
----
+3. Start the MongoDB service, then start the API in one terminal:
 
-## 🚀 Getting Started
+   ```bash
+   npm run server
+   ```
 
-### 1. Install Dependencies
+   The API listens at `http://localhost:5000/api`; check `http://localhost:5000/api/health` for its database status.
+
+4. Start the frontend in a second terminal:
+
+   ```bash
+   npm run dev
+   ```
+
+   Open `http://localhost:5173`. Vite proxies `/api` requests to the API server, and users enter through `/login` or `/register`.
+
+## Backend architecture
+
+`server/routes/routeRegistry.js` and `docs/API_ROUTES.md` define the existing canonical route contracts. Express route modules mount those paths; controllers translate HTTP requests; services enforce business rules; Mongoose models persist data. Preserve the established paths and JSON response envelope (`success`, `data`, `error`) when extending the API.
+
+The schema and most route/controller/service files are already present. The frontend is being connected to the real API in feature slices. Authentication, event discovery, profile discovery, and team task/submission workflows are the current integration scope. Mentor, judge, organizer, notification, reputation, document/RAG, and AI planner screens still require end-to-end integration with their existing APIs and external services.
+
+## Existing project checks
+
 ```bash
-npm install
+npm run db:verify
+npm run api:verify
 ```
 
-### 2. Run Development Server
-```bash
-npm run dev
-```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-### 3. Build for Production
-```bash
-npm run build
-```
-
-### 4. Preview Production Build
-```bash
-npm run preview
-```
-
----
-
-## 🔌 Future Backend Integration
-
-All UI components are decoupled from mock data through the service layer in [`src/services/`](src/services/). To attach a real backend server (Node.js/Express/MongoDB/Atlas Vector Search), refer to the detailed integration guide at [`docs/BACKEND_INTEGRATION.md`](docs/BACKEND_INTEGRATION.md).
+These inspect model and route registration. They require the project dependencies to be installed. Seeding is available through `npm run db:seed`; review the seed script and point `MONGODB_URI` at a development database before running it.

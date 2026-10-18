@@ -23,7 +23,7 @@ export const AppLayout = () => {
         </main>
 
         <footer className="py-6 border-t border-[#E2E8F0] text-center text-xs text-[#64748B]">
-          <p>© 2026 HackHub · Built by College Students for Student Hackathons · Demo Mode Active</p>
+          <p>© 2026 HackHub · Built by College Students for Student Hackathons</p>
         </footer>
       </div>
     </div>

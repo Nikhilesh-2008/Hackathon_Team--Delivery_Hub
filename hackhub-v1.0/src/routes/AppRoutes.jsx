@@ -24,25 +24,33 @@ import { OrganizerDashboard } from '../pages/OrganizerDashboard';
 import { LoginPage } from '../pages/LoginPage';
 
 export const AppRoutes = () => {
-  const { activeRole } = useAuth();
+  const { activeRole, user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="grid min-h-screen place-items-center text-sm text-slate-500">Loading HackHub…</div>;
+  }
 
   // Return role-appropriate dashboard
   const renderDashboardByRole = () => {
-    if (activeRole === 'Mentor') return <MentorDashboard />;
-    if (activeRole === 'Judge') return <JudgeDashboard />;
-    if (activeRole === 'Organizer') return <OrganizerDashboard />;
+    const role = (user?.role || activeRole || '').toUpperCase();
+    if (role === 'MENTOR') return <MentorDashboard />;
+    if (role === 'JUDGE') return <JudgeDashboard />;
+    if (role === 'ORGANIZER') return <OrganizerDashboard />;
     return <Dashboard />;
   };
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<LoginPage />} />
+      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
 
       {/* Main App Layout shell */}
-      <Route path="/" element={<AppLayout />}>
+      <Route path="/" element={user ? <AppLayout /> : <Navigate to="/login" replace />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={renderDashboardByRole()} />
+        <Route path="judge" element={<JudgeDashboard />} />
+        <Route path="mentor" element={<MentorDashboard />} />
+        <Route path="organizer" element={<OrganizerDashboard />} />
         
         {/* Events & Challenges */}
         <Route path="events" element={<DiscoverEvents />} />

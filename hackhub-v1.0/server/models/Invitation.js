@@ -72,7 +72,6 @@ const invitationSchema = new mongoose.Schema(
 // Indexes
 invitationSchema.index({ inviteeId: 1, status: 1 });
 invitationSchema.index({ teamId: 1, inviteeId: 1, status: 1 });
-invitationSchema.index({ expiresAt: 1 });
 
 export const Invitation = mongoose.models.Invitation || mongoose.model('Invitation', invitationSchema);
 export default Invitation;

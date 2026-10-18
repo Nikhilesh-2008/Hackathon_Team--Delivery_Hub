@@ -21,7 +21,7 @@ export const createTask = async (req, res, next) => {
 
 export const getTaskById = async (req, res, next) => {
   try {
-    const data = await taskService.getTaskById(req.params.taskId);
+    const data = await taskService.getTaskById(req.params.taskId, req.user);
     return sendSuccess(res, data, 200);
   } catch (err) {
     return next(err);

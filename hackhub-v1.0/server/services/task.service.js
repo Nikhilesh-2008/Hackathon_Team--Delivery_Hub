@@ -8,6 +8,18 @@ export const getTeamTasks = async (teamId) => {
   return tasks;
 };
 
+const ensureTaskAccess = async (task, user) => {
+  if (['ADMIN', 'ORGANIZER'].includes(user.role)) return;
+  const membership = await Membership.findOne({
+    userId: user._id,
+    teamId: task.teamId,
+    status: 'active',
+  });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'You must be an active team member to access this task', 403);
+  }
+};
+
 export const createTask = async (teamId, user, taskData) => {
   const team = await Team.findById(teamId);
   if (!team) {
@@ -28,7 +40,7 @@ export const createTask = async (teamId, user, taskData) => {
   return task;
 };
 
-export const getTaskById = async (taskId) => {
+export const getTaskById = async (taskId, user) => {
   const task = await Task.findById(taskId)
     .populate('ownerId', 'name avatarUrl email')
     .populate('createdBy', 'name');
@@ -36,6 +48,8 @@ export const getTaskById = async (taskId) => {
   if (!task) {
     throw new AppError('RESOURCE_NOT_FOUND', 'Task not found', 404);
   }
+
+  await ensureTaskAccess(task, user);
 
   return task;
 };
@@ -52,6 +66,12 @@ export const updateTask = async (taskId, user, updatePayload) => {
   delete updateFields._id;
   delete updateFields.teamId;
   delete updateFields.eventId;
+
+  const taskRecord = await Task.findById(taskId);
+  if (!taskRecord) {
+    throw new AppError('RESOURCE_NOT_FOUND', 'Task not found', 404);
+  }
+  await ensureTaskAccess(taskRecord, user);
 
   // Optimistic locking update
   const updatedTask = await Task.findOneAndUpdate(
@@ -80,6 +100,8 @@ export const deleteTask = async (taskId, user) => {
   if (!task) {
     throw new AppError('RESOURCE_NOT_FOUND', 'Task not found', 404);
   }
+
+  await ensureTaskAccess(task, user);
 
   await Task.findByIdAndDelete(taskId);
 

@@ -3,7 +3,7 @@ import { sendSuccess, sendCollection } from '../utils/response.js';
 
 export const getTeamMilestones = async (req, res, next) => {
   try {
-    const data = await milestoneService.getTeamMilestones(req.params.teamId);
+    const data = await milestoneService.getTeamMilestones(req.params.teamId, req.user);
     return sendCollection(res, data, {}, 200);
   } catch (err) {
     return next(err);

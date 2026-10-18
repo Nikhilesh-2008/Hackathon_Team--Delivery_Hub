@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { connectDatabase } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -77,7 +79,7 @@ app.use('/api', (req, res) => {
 // Centralized Error Handling Middleware
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 export const startServer = async () => {
   try {
@@ -93,7 +95,7 @@ export const startServer = async () => {
 };
 
 // Auto-start when executed directly
-if (process.argv[1] && process.argv[1].endsWith('server/index.js')) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   startServer();
 }
 

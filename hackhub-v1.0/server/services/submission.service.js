@@ -1,7 +1,16 @@
 import { Submission, Team, Event, Membership, AuditLog } from '../models/index.js';
 import { AppError } from '../utils/response.js';
 
-export const getSubmissionChecklist = async (teamId) => {
+const ensureSubmissionReadAccess = async (teamId, user) => {
+  if (['ADMIN', 'ORGANIZER', 'JUDGE'].includes(user.role)) return;
+  const membership = await Membership.findOne({ userId: user._id, teamId, status: 'active' });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'You must be an active team member to view this submission', 403);
+  }
+};
+
+export const getSubmissionChecklist = async (teamId, user) => {
+  await ensureSubmissionReadAccess(teamId, user);
   const team = await Team.findById(teamId);
   if (!team) {
     throw new AppError('RESOURCE_NOT_FOUND', 'Team not found', 404);
@@ -43,7 +52,8 @@ export const getSubmissionChecklist = async (teamId) => {
   };
 };
 
-export const getTeamSubmission = async (teamId) => {
+export const getTeamSubmission = async (teamId, user) => {
+  await ensureSubmissionReadAccess(teamId, user);
   const team = await Team.findById(teamId);
   if (!team) {
     throw new AppError('RESOURCE_NOT_FOUND', 'Team not found', 404);
@@ -98,9 +108,9 @@ export const upsertSubmission = async (teamId, user, payload) => {
     eventId: event._id,
     teamId: team._id,
     challengeId: payload.challengeId || team.challengeId,
-    description: payload.description || (submission ? submission.description : 'Pending project description'),
-    repositoryUrl: payload.repositoryUrl || payload.githubUrl || (submission ? submission.repositoryUrl : 'https://github.com/placeholder'),
-    deploymentUrl: payload.deploymentUrl || payload.liveUrl || (submission ? submission.deploymentUrl : 'https://placeholder.app'),
+    description: payload.description ?? submission?.description,
+    repositoryUrl: payload.repositoryUrl || payload.githubUrl || submission?.repositoryUrl,
+    deploymentUrl: payload.deploymentUrl || payload.liveUrl || submission?.deploymentUrl,
     demoVideoUrl: payload.demoVideoUrl || (submission ? submission.demoVideoUrl : ''),
     presentationUrl: payload.presentationUrl || (submission ? submission.presentationUrl : ''),
     checklist: payload.checklist || (submission ? submission.checklist : {}),
@@ -146,7 +156,7 @@ export const updateSubmissionDraft = async (teamId, user, payload) => {
   return upsertSubmission(teamId, user, { ...payload, action: 'SAVE_DRAFT' });
 };
 
-export const getSubmissionById = async (submissionId) => {
+export const getSubmissionById = async (submissionId, user) => {
   const submission = await Submission.findById(submissionId)
     .populate('teamId', 'name createdBy')
     .populate('eventId', 'name submissionDeadline status')
@@ -155,6 +165,8 @@ export const getSubmissionById = async (submissionId) => {
   if (!submission) {
     throw new AppError('RESOURCE_NOT_FOUND', 'Submission not found', 404);
   }
+
+  await ensureSubmissionReadAccess(submission.teamId, user);
 
   return submission;
 };

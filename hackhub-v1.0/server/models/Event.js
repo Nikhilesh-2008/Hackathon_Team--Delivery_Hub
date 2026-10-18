@@ -128,10 +128,7 @@ eventSchema.pre('validate', function () {
 });
 
 // Indexes
-eventSchema.index({ slug: 1 }, { unique: true });
 eventSchema.index({ status: 1, startDate: 1 });
-eventSchema.index({ submissionDeadline: 1 });
-eventSchema.index({ organizerId: 1 });
 
 export const Event = mongoose.models.Event || mongoose.model('Event', eventSchema);
 export const Hackathon = Event; // Export alias for blueprint consistency

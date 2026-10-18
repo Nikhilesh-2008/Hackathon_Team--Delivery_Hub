@@ -3,7 +3,7 @@ import { sendSuccess } from '../utils/response.js';
 
 export const getSubmissionChecklist = async (req, res, next) => {
   try {
-    const data = await submissionService.getSubmissionChecklist(req.params.teamId);
+    const data = await submissionService.getSubmissionChecklist(req.params.teamId, req.user);
     return sendSuccess(res, data, 200);
   } catch (err) {
     return next(err);
@@ -12,7 +12,7 @@ export const getSubmissionChecklist = async (req, res, next) => {
 
 export const getTeamSubmission = async (req, res, next) => {
   try {
-    const data = await submissionService.getTeamSubmission(req.params.teamId);
+    const data = await submissionService.getTeamSubmission(req.params.teamId, req.user);
     return sendSuccess(res, data, 200);
   } catch (err) {
     return next(err);
@@ -39,7 +39,7 @@ export const updateSubmissionDraft = async (req, res, next) => {
 
 export const getSubmissionById = async (req, res, next) => {
   try {
-    const data = await submissionService.getSubmissionById(req.params.submissionId);
+    const data = await submissionService.getSubmissionById(req.params.submissionId, req.user);
     return sendSuccess(res, data, 200);
   } catch (err) {
     return next(err);

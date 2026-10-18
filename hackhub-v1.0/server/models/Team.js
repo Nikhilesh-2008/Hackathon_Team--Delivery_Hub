@@ -77,8 +77,6 @@ teamSchema.virtual('hackathonId')
 // Team name must be unique within a hackathon event
 teamSchema.index({ eventId: 1, name: 1 }, { unique: true });
 teamSchema.index({ eventId: 1, challengeId: 1 });
-teamSchema.index({ createdBy: 1 });
-teamSchema.index({ status: 1 });
 
 export const Team = mongoose.models.Team || mongoose.model('Team', teamSchema);
 export default Team;

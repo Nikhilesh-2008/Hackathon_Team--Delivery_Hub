@@ -67,7 +67,6 @@ const chunkSchema = new mongoose.Schema(
 // B-tree indexes for filtered vector queries
 chunkSchema.index({ eventId: 1, documentId: 1 });
 chunkSchema.index({ eventId: 1, version: 1 });
-chunkSchema.index({ teamId: 1 });
 
 export const Chunk = mongoose.models.Chunk || mongoose.model('Chunk', chunkSchema);
 export default Chunk;

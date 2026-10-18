@@ -107,7 +107,6 @@ const profileSchema = new mongoose.Schema(
 );
 
 // Indexes for candidate teammate search queries
-profileSchema.index({ userId: 1 }, { unique: true });
 profileSchema.index({ discoveryConsent: 1, specialization: 1 });
 profileSchema.index({ skills: 1 });
 profileSchema.index({ interests: 1 });

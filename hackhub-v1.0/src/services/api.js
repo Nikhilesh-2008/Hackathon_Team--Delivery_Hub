@@ -1,4 +1,5 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+const TOKEN_KEY = 'hackhub_jwt_token';
 
 class ApiClient {
   constructor(baseUrl) {
@@ -13,7 +14,7 @@ class ApiClient {
       ...options.headers,
     };
 
-    const token = localStorage.getItem('hackhub_jwt_token');
+    const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -29,7 +30,11 @@ class ApiClient {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.message || `HTTP Error ${response.status}: ${response.statusText}`);
+        const error = new Error(data?.error?.message || data.message || `HTTP Error ${response.status}: ${response.statusText}`);
+        error.status = response.status;
+        error.code = data?.error?.code || `HTTP_${response.status}`;
+        error.details = data?.error?.details;
+        throw error;
       }
 
       return data;
@@ -73,3 +78,9 @@ class ApiClient {
 }
 
 export const api = new ApiClient(BASE_URL);
+
+export const setAuthToken = (token) => {
+  if (typeof window === 'undefined') return;
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+};

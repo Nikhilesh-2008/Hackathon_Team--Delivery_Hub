@@ -18,6 +18,29 @@ export const connectDatabase = async (customUri = null) => {
       autoIndex: true, // Build indexes in development/testing
     });
     console.log(`[Database] MongoDB connected: ${conn.connection.host}/${conn.connection.name}`);
+
+    // Drop stale legacy indexes if left over from previous schema versions
+    try {
+      const collections = await conn.connection.db.listCollections().toArray();
+      const colNames = collections.map((c) => c.name);
+      if (colNames.includes('profiles')) {
+        const profileIndexes = await conn.connection.db.collection('profiles').indexes();
+        if (profileIndexes.some((idx) => idx.name === 'user_1')) {
+          await conn.connection.db.collection('profiles').dropIndex('user_1');
+          console.log('[Database] Cleaned up legacy index user_1 from profiles');
+        }
+      }
+      if (colNames.includes('submissions')) {
+        const subIndexes = await conn.connection.db.collection('submissions').indexes();
+        if (subIndexes.some((idx) => idx.name === 'team_1')) {
+          await conn.connection.db.collection('submissions').dropIndex('team_1');
+          console.log('[Database] Cleaned up legacy index team_1 from submissions');
+        }
+      }
+    } catch (cleanupErr) {
+      console.warn('[Database] Legacy index cleanup note:', cleanupErr.message);
+    }
+
     return conn.connection;
   } catch (error) {
     console.error(`[Database] Connection error: ${error.message}`);

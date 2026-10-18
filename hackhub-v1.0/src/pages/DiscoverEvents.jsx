@@ -12,6 +12,7 @@ export const DiscoverEvents = () => {
   const [category, setCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const categories = [
     { id: 'All', label: 'All Hackathons' },
@@ -25,9 +26,16 @@ export const DiscoverEvents = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       setLoading(true);
-      const data = await mockEventService.getAllHackathons(category, searchQuery);
-      setEvents(data);
-      setLoading(false);
+      setLoadError('');
+      try {
+        const data = await mockEventService.getAllHackathons(category, searchQuery);
+        setEvents(data);
+      } catch (error) {
+        setEvents([]);
+        setLoadError(error.message || 'Could not load hackathons.');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchEvents();
   }, [category, searchQuery]);
@@ -57,6 +65,7 @@ export const DiscoverEvents = () => {
       />
 
       {/* Event Cards Grid */}
+      {loadError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3].map((i) => (

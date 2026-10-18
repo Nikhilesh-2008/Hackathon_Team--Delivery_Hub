@@ -136,7 +136,6 @@ submissionSchema.pre('validate', function () {
 });
 
 // Indexes
-submissionSchema.index({ teamId: 1 }, { unique: true });
 submissionSchema.index({ eventId: 1, status: 1 });
 submissionSchema.index({ challengeId: 1, status: 1 });
 

@@ -64,6 +64,18 @@ export const getTeamInvitations = async (teamId, user) => {
     throw new AppError('RESOURCE_NOT_FOUND', 'Team not found', 404);
   }
 
+  if (user.role !== 'ADMIN') {
+    const isCaptain = await Membership.exists({
+      userId: user._id,
+      teamId: team._id,
+      role: 'captain',
+      status: 'active',
+    });
+    if (!isCaptain) {
+      throw new AppError('FORBIDDEN', 'Only the team captain can view sent invitations', 403);
+    }
+  }
+
   const invitations = await Invitation.find({ teamId, status: 'pending' })
     .populate('inviteeId', 'name email college avatarUrl')
     .sort({ createdAt: -1 });

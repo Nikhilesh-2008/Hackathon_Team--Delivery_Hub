@@ -1,73 +1,47 @@
 import { api } from './api';
-import { participants } from '../data/users';
+
+const presentCandidate = (profile) => ({
+  ...profile,
+  id: profile?.id || profile?._id || profile?.userId?._id,
+  name: profile?.name || profile?.userId?.name || 'HackHub member',
+  college: profile?.college || profile?.userId?.college || '',
+  year: profile?.year || profile?.userId?.graduationYear || '',
+  specialization: profile?.specialization || profile?.role || 'Generalist',
+  reputation: profile?.reputation || profile?.reputationScore || 0,
+  whyThisPerson: profile?.whyThisPerson || {
+    skillsMatch: profile?.skills?.length ? `Skills: ${profile.skills.slice(0, 3).join(', ')}` : 'Complementary skill set',
+    interestMatch: profile?.interests?.[0] || 'Open to hackathon challenges',
+    availabilityMatch: profile?.availability || 'Availability not specified',
+    experienceMatch: profile?.experienceLevel || 'HackHub participant',
+  },
+});
 
 export const mockProfileService = {
   getCandidates: async (filters = {}) => {
-    try {
-      const params = new URLSearchParams();
-      if (filters.specialization && filters.specialization !== 'All') params.append('specialization', filters.specialization);
-      if (filters.skill && filters.skill !== 'All') params.append('skill', filters.skill);
-      if (filters.interest && filters.interest !== 'All') params.append('interest', filters.interest);
-      if (filters.searchQuery && filters.searchQuery.trim()) params.append('query', filters.searchQuery.trim());
-
-      const queryStr = params.toString() ? `?${params.toString()}` : '';
-      const res = await api.get(`/profiles${queryStr}`);
-      if (res.success && res.data && res.data.length > 0) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-
-    let list = participants;
-    if (filters.specialization && filters.specialization !== 'All') {
-      list = list.filter((p) => p.specialization.toLowerCase().includes(filters.specialization.toLowerCase()));
-    }
-    if (filters.skill && filters.skill !== 'All') {
-      list = list.filter((p) => p.skills.some((s) => s.toLowerCase() === filters.skill.toLowerCase()));
-    }
-    if (filters.searchQuery && filters.searchQuery.trim()) {
-      const q = filters.searchQuery.toLowerCase();
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.specialization.toLowerCase().includes(q) ||
-        p.bio.toLowerCase().includes(q) ||
-        p.skills.some((s) => s.toLowerCase().includes(q))
-      );
-    }
-    return list;
+    const response = await api.post('/discovery/teammates', {
+      specialization: filters.specialization || 'All',
+      skill: filters.skill || 'All',
+      interest: filters.interest || 'All',
+      query: filters.searchQuery || filters.query || '',
+      limit: 20,
+    });
+    return (response.data || []).map(presentCandidate);
   },
 
   getCandidateById: async (id) => {
-    try {
-      const res = await api.get(`/profile/${id}`);
-      if (res.success && res.data) {
-        const p = res.data;
-        return {
-          id: p.user?._id || p._id,
-          name: p.user?.name || 'Developer',
-          specialization: p.specialization || 'Developer',
-          college: p.college || 'National Institute of Technology',
-          year: p.year || '3rd Year',
-          bio: p.bio || '',
-          reputation: p.reputationScore || 1100,
-          availability: p.availability || '8 hrs/week',
-          skills: p.skills || [],
-          interests: p.interests || [],
-          codingProfiles: p.codingProfiles || {},
-          projects: p.projects || [],
-          whyThisPerson: {
-            skillsMatch: `Strong ${p.skills?.[0] || 'Full Stack'} experience`,
-            interestMatch: `Interested in ${p.interests?.[0] || 'AI'} challenges`,
-            availabilityMatch: `Available ${p.availability || '8 hrs/week'}`,
-            experienceMatch: `Verified hackathon participant`,
-            reputationScore: p.reputationScore || 1100,
-          },
-        };
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return participants.find((p) => p.id === id) || participants[0];
+    const response = await api.post('/discovery/teammates', { limit: 100 });
+    const candidate = (response.data || []).find((profile) => String(profile.id || profile._id) === String(id));
+    if (!candidate) throw new Error('This profile is unavailable or is not discoverable.');
+    return presentCandidate(candidate);
+  },
+
+  getMyProfile: async () => {
+    const response = await api.get('/profiles/me');
+    return response.data;
+  },
+
+  updateMyProfile: async (profile) => {
+    const response = await api.patch('/profiles/me', profile);
+    return response.data;
   },
 };

@@ -11,6 +11,9 @@ export const createTeam = async (user, { eventId, challengeId, name, description
   if (['closed', 'locked'].includes(event.status)) {
     throw new AppError('BUSINESS_RULE_VIOLATION', 'Event registration has closed', 422);
   }
+  if (event.registrationDeadline && new Date(event.registrationDeadline).getTime() < Date.now()) {
+    throw new AppError('BUSINESS_RULE_VIOLATION', 'Event registration deadline has passed', 422);
+  }
 
   // Check if user is already an active member of ANY team in this event
   const existingActiveMembership = await Membership.findOne({

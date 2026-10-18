@@ -1,176 +1,117 @@
 import { api } from './api';
-import { mockTeams, mockTasks, mockTimeline } from '../data/teams';
-import { mockFeedback, mockInvitations } from '../data/reputation';
+
+const presentTask = (task) => ({
+  ...task,
+  id: task?._id || task?.id,
+  owner: task?.ownerName || task?.ownerId?.name || 'Unassigned',
+  priority: task?.priority ? `${task.priority[0].toUpperCase()}${task.priority.slice(1)}` : 'Medium',
+  deadline: task?.targetDate ? new Date(task.targetDate).toLocaleDateString() : '',
+  status: ({ todo: 'TODO', in_progress: 'IN_PROGRESS', blocked: 'BLOCKED', done: 'COMPLETED' })[task?.status] || task?.status,
+});
+
+const presentSubmission = (submission) => submission ? ({
+  ...submission,
+  id: submission._id || submission.id,
+  githubUrl: submission.repositoryUrl || '',
+  liveUrl: submission.deploymentUrl || '',
+  status: String(submission.status || 'draft').toUpperCase(),
+}) : null;
 
 export const mockTeamService = {
   getCurrentTeam: async () => {
-    try {
-      const res = await api.get('/teams/my-team');
-      if (res.success && res.data) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return mockTeams[0];
+    const me = await api.get('/auth/me');
+    const activeTeam = me.data?.activeTeams?.[0];
+    if (!activeTeam?.teamId) return null;
+
+    const response = await api.get(`/teams/${activeTeam.teamId}`);
+    const { team, members = [] } = response.data || {};
+    return {
+      ...team,
+      id: team?._id || team?.id,
+      hackathonTitle: team?.eventId?.name || '',
+      challengeTitle: team?.challengeId?.title || '',
+      members: members.map((member) => ({
+        id: member.user?._id || member.user?.id,
+        name: member.user?.name || 'Member',
+        role: member.role,
+        isCaptain: member.role === 'captain',
+        specialization: member.specialization || '',
+      })),
+    };
   },
 
-  getAllTeams: async () => {
-    try {
-      const res = await api.get('/teams');
-      if (res.success && res.data && res.data.length > 0) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return mockTeams;
+  getInvitations: async (teamId) => {
+    if (!teamId) return [];
+    const response = await api.get(`/teams/${teamId}/invitations`);
+    return response.data || [];
   },
 
-  sendInvitation: async (candidateId, message, receiverName = 'Developer') => {
-    try {
-      const res = await api.post('/teams/invitations', {
-        receiverId: candidateId,
-        receiverName,
-        message,
-      });
-      if (res.success) return res;
-    } catch (e) {
-      // Fallback
-    }
-    return { success: true, message: 'Invitation sent to candidate successfully!' };
-  },
-
-  getInvitations: async () => {
-    try {
-      const res = await api.get('/teams/invitations');
-      if (res.success && res.data) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return mockInvitations;
+  sendInvitation: async (teamId, candidateId, message) => {
+    if (!teamId) throw new Error('Create or join a team before inviting teammates.');
+    const response = await api.post(`/teams/${teamId}/invitations`, { inviteeId: candidateId, message });
+    return response.data;
   },
 
   respondInvitation: async (invitationId, accept = true) => {
-    try {
-      const res = await api.patch(`/teams/invitations/${invitationId}`, {
-        status: accept ? 'ACCEPTED' : 'REJECTED',
-      });
-      if (res.success) return res.data;
-    } catch (e) {
-      // Fallback
-    }
-    return mockInvitations;
+    const action = accept ? 'accept' : 'reject';
+    const response = await api.post(`/invitations/${invitationId}/${action}`, {});
+    return response.data;
   },
 
-  getMentorFeedback: async () => {
-    try {
-      const res = await api.get('/feedback');
-      if (res.success && res.data && res.data.length > 0) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return mockFeedback;
-  },
-
-  addMentorFeedback: async (feedback) => {
-    try {
-      const res = await api.post('/feedback', feedback);
-      if (res.success && res.data) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return { id: `fb_${Date.now()}`, timestamp: 'Just now', ...feedback };
+  getTeam: async (teamId) => {
+    const response = await api.get(`/teams/${teamId}`);
+    return response.data;
   },
 };
 
 export const mockTaskService = {
-  getTasks: async () => {
-    try {
-      const res = await api.get('/tasks');
-      if (res.success && res.data && res.data.length > 0) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return mockTasks;
+  getTasks: async (teamId) => {
+    if (!teamId) return [];
+    const response = await api.get(`/teams/${teamId}/tasks`);
+    return (response.data || []).map(presentTask);
   },
 
-  updateTaskStatus: async (taskId, newStatus) => {
-    try {
-      const res = await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
-      if (res.success) {
-        return await mockTaskService.getTasks();
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return mockTasks.map((t) => (t.id === taskId || t._id === taskId ? { ...t, status: newStatus } : t));
+  updateTaskStatus: async (task, newStatus) => {
+    const status = ({ TODO: 'todo', IN_PROGRESS: 'in_progress', BLOCKED: 'blocked', COMPLETED: 'done' })[newStatus] || newStatus;
+    const response = await api.patch(`/tasks/${task.id || task._id}`, { status, version: task.version });
+    return presentTask(response.data);
   },
 
-  addTask: async (taskData) => {
-    try {
-      const res = await api.post('/tasks', taskData);
-      if (res.success) {
-        return await mockTaskService.getTasks();
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return [{ id: `task_${Date.now()}`, status: 'TODO', ...taskData }, ...mockTasks];
-  },
-
-  getTimeline: async () => {
-    return mockTimeline;
+  addTask: async (teamId, taskData) => {
+    if (!teamId) throw new Error('Create or join a team before adding sprint tasks.');
+    const response = await api.post(`/teams/${teamId}/tasks`, {
+      ...taskData,
+      ownerId: taskData.ownerId || undefined,
+      ownerName: taskData.ownerName || taskData.owner || undefined,
+      priority: String(taskData.priority || 'medium').toLowerCase(),
+      targetDate: taskData.targetDate || taskData.deadline || undefined,
+    });
+    return presentTask(response.data);
   },
 };
 
 export const mockSubmissionService = {
-  getSubmission: async () => {
-    try {
-      const res = await api.get('/submission');
-      if (res.success && res.data) {
-        return res.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    return {
-      githubUrl: 'https://github.com/karthik-dev/ai-study-planner',
-      liveUrl: 'https://study-planner-demo.vercel.app',
-      checklist: { githubRepo: true, deploymentLink: true, projectDescription: true, presentationDeck: true, demoVideo: false, finalTesting: false },
-      status: 'DRAFT',
-    };
+  getSubmission: async (teamId) => {
+    if (!teamId) return null;
+    const response = await api.get(`/teams/${teamId}/submission`);
+    return presentSubmission(response.data);
   },
 
-  saveSubmission: async (data) => {
-    try {
-      const res = await api.put('/submission', data);
-      if (res.success && res.data) return res.data;
-    } catch (e) {}
-    return data;
+  saveSubmission: async (teamId, data) => {
+    if (!teamId) throw new Error('Create or join a team before saving a submission.');
+    const response = await api.patch(`/teams/${teamId}/submission`, {
+      ...data,
+      repositoryUrl: data.repositoryUrl || data.githubUrl || '',
+      deploymentUrl: data.deploymentUrl || data.liveUrl || '',
+      action: 'SAVE_DRAFT',
+    });
+    return presentSubmission(response.data);
   },
 
-  submitProject: async (data) => {
-    try {
-      const res = await api.post('/submission/submit', data);
-      if (res.success && res.data) return res.data;
-    } catch (e) {}
-    return { ...data, status: 'SUBMITTED', submittedAt: new Date().toISOString() };
-  },
-
-  submitJudgeScore: async (scoreData) => {
-    try {
-      const res = await api.post('/scores', scoreData);
-      if (res.success) return res;
-    } catch (e) {}
-    return { success: true };
+  submitProject: async (teamId, data, existingSubmission) => {
+    if (!teamId) throw new Error('Create or join a team before submitting a project.');
+    const draft = await mockSubmissionService.saveSubmission(teamId, data);
+    const response = await api.post(`/submissions/${draft.id || existingSubmission?._id}/submit`, {});
+    return presentSubmission(response.data);
   },
 };
