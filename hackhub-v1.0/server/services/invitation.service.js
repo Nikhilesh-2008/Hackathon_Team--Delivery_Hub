@@ -196,9 +196,22 @@ export const cancelInvitation = async (invitationId, user) => {
   };
 };
 
+export const getReceivedInvitations = async (user) => {
+  const invitations = await Invitation.find({
+    inviteeId: user._id,
+    status: 'pending',
+  })
+    .populate('teamId', 'name eventId status description track progress')
+    .populate('inviterId', 'name email avatarUrl college')
+    .sort({ createdAt: -1 });
+
+  return invitations;
+};
+
 export default {
   createInvitation,
   getTeamInvitations,
+  getReceivedInvitations,
   acceptInvitation,
   rejectInvitation,
   cancelInvitation,

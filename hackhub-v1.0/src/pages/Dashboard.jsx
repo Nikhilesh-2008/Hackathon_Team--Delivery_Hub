@@ -28,7 +28,7 @@ import { mockProfileService } from '../services/mockProfileService';
 
 export const Dashboard = () => {
   const { user, activeRole } = useAuth();
-  const { currentTeam, tasks, updateTaskStatus, sendInvitation } = useTeam();
+  const { currentTeam, tasks, updateTaskStatus, sendInvitation, receivedInvitations, respondInvitation } = useTeam();
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [recommendedCandidates, setRecommendedCandidates] = useState([]);
   const navigate = useNavigate();
@@ -106,6 +106,45 @@ export const Dashboard = () => {
           color="amber"
         />
       </div>
+
+      {/* Incoming Team Invitations Banner */}
+      {receivedInvitations && receivedInvitations.length > 0 && (
+        <div className="bg-indigo-50/90 border border-indigo-200 rounded-2xl p-5 space-y-3 shadow-xs">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm text-indigo-950 flex items-center gap-2">
+              <Users size={16} className="text-indigo-600" />
+              <span>Incoming Team Invitations ({receivedInvitations.length})</span>
+            </h3>
+            <span className="text-xs text-indigo-700 font-medium">Respond to join a squad</span>
+          </div>
+
+          <div className="space-y-2.5">
+            {receivedInvitations.map((inv) => (
+              <div
+                key={inv._id || inv.id}
+                className="p-4 bg-white rounded-xl border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+              >
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-[#172033]">{inv.teamId?.name || 'Hackathon Squad'}</span>
+                    <Badge variant="primary" size="sm">Invited by {inv.inviterId?.name || 'Captain'}</Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">{inv.message || 'Invited you to team up for the hackathon!'}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <Button size="xs" variant="secondary" onClick={() => respondInvitation(inv._id || inv.id, false)}>
+                    Decline
+                  </Button>
+                  <Button size="xs" variant="primary" onClick={() => respondInvitation(inv._id || inv.id, true)}>
+                    Accept & Join Squad
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Urgent Highlight Banner */}
       <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

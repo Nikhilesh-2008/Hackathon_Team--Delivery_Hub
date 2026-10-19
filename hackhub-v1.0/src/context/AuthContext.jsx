@@ -11,18 +11,32 @@ const roleLabels = {
 };
 
 const normalizeUser = (payload) => {
-  const account = payload?.user || payload || {};
-  const normalizedRole = (account.role || 'PARTICIPANT').toUpperCase();
+  const account = payload?.user || (payload?.email ? payload : {}) || {};
+  const profile = payload?.profile || (payload?.userId ? payload : {}) || account.profile || {};
+  const normalizedRole = (account.role || profile?.userId?.role || 'PARTICIPANT').toUpperCase();
+
   return {
     ...account,
-    ...(payload?.profile || {}),
-    ...account,
-    id: account.id || account._id,
+    ...profile,
+    ...(profile?.userId && typeof profile.userId === 'object' ? profile.userId : {}),
+    id: account.id || account._id || profile?.userId?._id || profile?.userId || payload?.id || payload?._id,
+    name: account.name || profile?.userId?.name || profile?.name || '',
+    email: account.email || profile?.userId?.email || '',
+    college: account.college || profile?.userId?.college || profile?.college || '',
+    year: account.graduationYear || profile?.userId?.graduationYear || profile?.year || '',
+    graduationYear: account.graduationYear || profile?.userId?.graduationYear || profile?.year || '',
+    bio: profile?.bio || account.bio || '',
     role: normalizedRole,
-    profile: payload?.profile || account.profile || null,
+    specialization: profile?.specialization || account.specialization || 'Generalist',
+    skills: Array.isArray(profile?.skills) ? profile.skills : (Array.isArray(account.skills) ? account.skills : []),
+    interests: Array.isArray(profile?.interests) ? profile.interests : (Array.isArray(account.interests) ? account.interests : []),
+    availability: profile?.availability || account.availability || '8-10 hrs/week',
+    codingProfiles: profile?.codingProfiles || account.codingProfiles || {},
+    projects: profile?.projects || account.projects || [],
+    certificates: profile?.certificates || account.certificates || [],
+    profile,
     activeTeams: payload?.activeTeams || account.activeTeams || [],
-    reputation: payload?.reputation ?? account.reputation ?? 0,
-    specialization: payload?.profile?.specialization || account.specialization || '',
+    reputation: payload?.reputation ?? account.reputation ?? profile?.reputationScore ?? 0,
   };
 };
 

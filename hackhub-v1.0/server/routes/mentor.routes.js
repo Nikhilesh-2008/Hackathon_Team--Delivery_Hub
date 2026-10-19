@@ -9,6 +9,9 @@ const router = Router();
 // GET /api/mentor/teams
 router.get('/mentor/teams', requireAuth, requireRole('MENTOR', 'ADMIN'), mentorController.getAssignedTeams);
 
+// GET /api/mentor/feedback
+router.get('/mentor/feedback', requireAuth, requireRole('MENTOR', 'ADMIN'), mentorController.getMentorFeedback);
+
 // GET /api/teams/:teamId/feedback
 router.get('/teams/:teamId/feedback', requireAuth, mentorController.getTeamFeedback);
 

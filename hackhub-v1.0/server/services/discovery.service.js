@@ -61,11 +61,14 @@ export const discoverTeammates = async (filters = {}, requestingUser = null) => 
 
   if (query && query.trim()) {
     const q = query.trim();
+    const tokens = q.split(/\s+/).filter((t) => t.length > 2);
+    const searchTerms = [q, ...tokens];
+    const regexList = searchTerms.map((term) => new RegExp(term, 'i'));
     filter.$or = [
-      { bio: { $regex: q, $options: 'i' } },
-      { specialization: { $regex: q, $options: 'i' } },
-      { skills: { $in: [new RegExp(q, 'i')] } },
-      { interests: { $in: [new RegExp(q, 'i')] } },
+      { bio: { $in: regexList } },
+      { specialization: { $in: regexList } },
+      { skills: { $in: regexList } },
+      { interests: { $in: regexList } },
     ];
   }
 
@@ -73,26 +76,28 @@ export const discoverTeammates = async (filters = {}, requestingUser = null) => 
     .populate('userId', 'name email college avatarUrl graduationYear role isActive')
     .limit(parseInt(limit, 10));
 
-  // Filter out deactivated accounts and build candidate presentation
+  // STRICT REQUIREMENT: Only discover active users with PARTICIPANT role
+  // Judges, mentors, and organizers must NEVER be displayed in the candidate invite list
   const candidates = profiles
-    .filter((p) => p.userId && p.userId.isActive)
+    .filter((p) => p.userId && p.userId.isActive && String(p.userId.role).toUpperCase() === 'PARTICIPANT')
     .map((p) => {
       const u = p.userId;
       return {
         id: u._id,
         profileId: p._id,
         name: u.name,
-        role: p.specialization,
+        role: 'Participant',
         specialization: p.specialization,
         college: u.college,
         avatarUrl: u.avatarUrl,
         bio: p.bio,
-        skills: p.skills,
-        interests: p.interests,
+        skills: p.skills || [],
+        interests: p.interests || [],
         availability: p.availability,
         experienceLevel: p.experienceLevel,
-        codingProfiles: p.codingProfiles,
-        projects: p.projects,
+        codingProfiles: p.codingProfiles || {},
+        projects: p.projects || [],
+        reputation: p.reputationScore || 100,
         whyThisPerson: {
           skillsMatch: p.skills?.length > 0 ? `${p.skills.slice(0, 3).join(', ')} expert` : 'Complementary skill set',
           availabilityMatch: p.availability || '8-10 hrs/week',

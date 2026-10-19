@@ -46,9 +46,41 @@ export const mockTeamService = {
     return response.data || [];
   },
 
+  getReceivedInvitations: async () => {
+    try {
+      const response = await api.get('/invitations/received');
+      return response.data || [];
+    } catch {
+      return [];
+    }
+  },
+
   sendInvitation: async (teamId, candidateId, message) => {
-    if (!teamId) throw new Error('Create or join a team before inviting teammates.');
-    const response = await api.post(`/teams/${teamId}/invitations`, { inviteeId: candidateId, message });
+    let resolvedTeamId = teamId;
+    if (!resolvedTeamId) {
+      const eventsRes = await api.get('/events');
+      const events = eventsRes.data?.events || eventsRes.data || [];
+      const activeEvent = events.find((e) => e.status === 'published' || e.status === 'active') || events[0];
+      if (activeEvent) {
+        const eventId = activeEvent._id || activeEvent.id;
+        let challengeId = null;
+        try {
+          const detailRes = await api.get(`/events/${eventId}`);
+          const challenges = detailRes.data?.challenges || [];
+          challengeId = challenges[0]?._id || challenges[0]?.id;
+        } catch {}
+
+        const teamRes = await api.post('/teams', {
+          eventId,
+          challengeId,
+          name: `Squad ${Math.floor(100 + Math.random() * 900)}`,
+          description: 'Hackathon collaboration squad.',
+        });
+        resolvedTeamId = teamRes.data?._id || teamRes.data?.id;
+      }
+    }
+    if (!resolvedTeamId) throw new Error('Create or join a team before inviting teammates.');
+    const response = await api.post(`/teams/${resolvedTeamId}/invitations`, { inviteeId: candidateId, message });
     return response.data;
   },
 

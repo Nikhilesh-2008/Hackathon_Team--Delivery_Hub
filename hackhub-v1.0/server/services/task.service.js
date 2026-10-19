@@ -20,6 +20,18 @@ const ensureTaskAccess = async (task, user) => {
   }
 };
 
+export const recomputeTeamProgress = async (teamId) => {
+  try {
+    const total = await Task.countDocuments({ teamId });
+    const done = await Task.countDocuments({ teamId, status: 'done' });
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    await Team.findByIdAndUpdate(teamId, { $set: { progress } });
+    return progress;
+  } catch (err) {
+    console.error('[TaskService] Progress recalculation error:', err.message);
+  }
+};
+
 export const createTask = async (teamId, user, taskData) => {
   const team = await Team.findById(teamId);
   if (!team) {
@@ -36,6 +48,8 @@ export const createTask = async (teamId, user, taskData) => {
     version: 1,
     status: taskData.status || 'todo',
   });
+
+  await recomputeTeamProgress(team._id);
 
   return task;
 };
@@ -92,6 +106,8 @@ export const updateTask = async (taskId, user, updatePayload) => {
     });
   }
 
+  await recomputeTeamProgress(taskRecord.teamId);
+
   return updatedTask;
 };
 
@@ -104,6 +120,7 @@ export const deleteTask = async (taskId, user) => {
   await ensureTaskAccess(task, user);
 
   await Task.findByIdAndDelete(taskId);
+  await recomputeTeamProgress(task.teamId);
 
   return {
     deleted: true,

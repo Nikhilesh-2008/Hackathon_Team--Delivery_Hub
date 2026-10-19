@@ -19,7 +19,17 @@ export const updateMyProfile = async (req, res, next) => {
   }
 };
 
+export const getProfileById = async (req, res, next) => {
+  try {
+    const data = await profileService.getProfileById(req.params.id);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    return next(err);
+  }
+};
+
 export default {
   getMyProfile,
   updateMyProfile,
+  getProfileById,
 };

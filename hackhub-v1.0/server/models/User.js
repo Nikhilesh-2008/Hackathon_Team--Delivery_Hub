@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       required: [true, 'Role is required'],
+      set: (v) => (v ? v.toUpperCase() : 'PARTICIPANT'),
       enum: {
         values: USER_ROLES,
         message: '{VALUE} is not a valid user role',

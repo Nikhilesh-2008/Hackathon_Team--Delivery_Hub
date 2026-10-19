@@ -10,4 +10,7 @@ router.get('/profiles/me', requireAuth, profileController.getMyProfile);
 // PATCH /api/profiles/me
 router.patch('/profiles/me', requireAuth, profileController.updateMyProfile);
 
+// GET /api/profiles/:id
+router.get('/profiles/:id', profileController.getProfileById);
+
 export default router;

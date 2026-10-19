@@ -1,4 +1,4 @@
-import { Team, Membership, Event, Challenge, User, AuditLog, Notification } from '../models/index.js';
+import { Team, Membership, Event, Challenge, User, AuditLog, Notification, Task } from '../models/index.js';
 import { AppError } from '../utils/response.js';
 
 export const createTeam = async (user, { eventId, challengeId, name, description, technicalDecisions = [] }) => {
@@ -32,17 +32,23 @@ export const createTeam = async (user, { eventId, challengeId, name, description
     throw new AppError('CONFLICT', `A team named '${name}' already exists in this event`, 409);
   }
 
-  if (challengeId) {
-    const challenge = await Challenge.findOne({ _id: challengeId, eventId: event._id });
+  let resolvedChallengeId = challengeId;
+  if (resolvedChallengeId) {
+    const challenge = await Challenge.findOne({ _id: resolvedChallengeId, eventId: event._id });
     if (!challenge) {
       throw new AppError('RESOURCE_NOT_FOUND', 'Selected challenge does not belong to this event', 404);
+    }
+  } else {
+    const defaultChallenge = await Challenge.findOne({ eventId: event._id });
+    if (defaultChallenge) {
+      resolvedChallengeId = defaultChallenge._id;
     }
   }
 
   // Create team
   const team = await Team.create({
     eventId: event._id,
-    challengeId,
+    challengeId: resolvedChallengeId,
     name: name.trim(),
     description: description || '',
     createdBy: user._id,
@@ -90,8 +96,15 @@ export const getTeamById = async (teamId) => {
     .populate('userId', 'name email college avatarUrl graduationYear role')
     .lean();
 
+  const totalTasks = await Task.countDocuments({ teamId: team._id });
+  const doneTasks = await Task.countDocuments({ teamId: team._id, status: 'done' });
+  const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+  const teamObj = team.toObject ? team.toObject() : { ...team };
+  teamObj.progress = progress;
+
   return {
-    team,
+    team: teamObj,
     members: members.map((m) => ({
       membershipId: m._id,
       user: m.userId,

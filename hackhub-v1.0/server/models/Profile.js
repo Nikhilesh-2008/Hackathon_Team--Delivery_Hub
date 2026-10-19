@@ -89,7 +89,10 @@ const profileSchema = new mongoose.Schema(
       github: {
         type: String,
         trim: true,
-        match: [GITHUB_PROFILE_REGEX, 'Please provide a valid GitHub profile URL'],
+        validate: {
+          validator: (v) => !v || GITHUB_PROFILE_REGEX.test(v),
+          message: 'Please provide a valid GitHub profile URL',
+        },
       },
       leetcode: { type: String, trim: true },
       codechef: { type: String, trim: true },

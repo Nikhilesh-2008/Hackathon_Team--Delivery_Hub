@@ -29,6 +29,14 @@ export const mockProfileService = {
   },
 
   getCandidateById: async (id) => {
+    try {
+      const response = await api.get(`/profiles/${id}`);
+      if (response && response.data) {
+        return presentCandidate(response.data);
+      }
+    } catch {
+      // Fallback to discovery list lookup if direct profile fetch encounters an error
+    }
     const response = await api.post('/discovery/teammates', { limit: 100 });
     const candidate = (response.data || []).find((profile) => String(profile.id || profile._id) === String(id));
     if (!candidate) throw new Error('This profile is unavailable or is not discoverable.');

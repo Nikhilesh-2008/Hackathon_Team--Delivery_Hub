@@ -10,6 +10,15 @@ export const getAssignedTeams = async (req, res, next) => {
   }
 };
 
+export const getMentorFeedback = async (req, res, next) => {
+  try {
+    const data = await mentorService.getMentorFeedback(req.user);
+    return sendCollection(res, data, {}, 200);
+  } catch (err) {
+    return next(err);
+  }
+};
+
 export const getTeamFeedback = async (req, res, next) => {
   try {
     const data = await mentorService.getTeamFeedback(req.params.teamId);
@@ -30,6 +39,7 @@ export const createFeedback = async (req, res, next) => {
 
 export default {
   getAssignedTeams,
+  getMentorFeedback,
   getTeamFeedback,
   createFeedback,
 };

@@ -2,8 +2,8 @@ import { Score, Submission, Membership, Event, Rubric } from '../models/index.js
 import { AppError } from '../utils/response.js';
 
 export const getAssignedSubmissions = async (judgeUser) => {
-  // Find submissions submitted or locked for evaluation
-  const submissions = await Submission.find({ status: { $in: ['submitted', 'locked'] } })
+  // Find submissions submitted, evaluated, or locked for evaluation
+  const submissions = await Submission.find({ status: { $in: ['submitted', 'locked', 'evaluated'] } })
     .populate('teamId', 'name createdBy')
     .populate('eventId', 'name slug submissionDeadline status')
     .populate('challengeId', 'title track problemStatement')
@@ -22,7 +22,23 @@ export const getAssignedSubmissions = async (judgeUser) => {
     return !memberTeamIds.has(tid);
   });
 
-  return filtered;
+  // Attach judge's evaluation if already evaluated
+  const submissionIds = filtered.map((s) => s._id);
+  const myScores = await Score.find({
+    submissionId: { $in: submissionIds },
+    judgeId: judgeUser._id,
+  }).lean();
+
+  const scoreMap = new Map(myScores.map((sc) => [sc.submissionId.toString(), sc]));
+
+  return filtered.map((s) => {
+    const evaluation = scoreMap.get(s._id.toString());
+    return {
+      ...s,
+      currentScore: evaluation ? evaluation.totalScore : null,
+      evaluation: evaluation || null,
+    };
+  });
 };
 
 export const getSubmissionScores = async (submissionId) => {
@@ -83,8 +99,10 @@ export const submitScore = async (submissionId, judgeUser, scoreData) => {
     rubricVersion: scoreData.rubricVersion || submission.rubricVersion || 1,
     criteriaScores,
     totalScore: computedTotal,
-    comments: scoreData.comments || '',
+    comments: scoreData.comments || scoreData.remarks || '',
   });
+
+  await Submission.findByIdAndUpdate(submission._id, { status: 'evaluated' });
 
   return score;
 };

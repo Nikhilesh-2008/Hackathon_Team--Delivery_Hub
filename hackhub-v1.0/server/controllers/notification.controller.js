@@ -19,7 +19,17 @@ export const markNotificationRead = async (req, res, next) => {
   }
 };
 
+export const markAllNotificationsRead = async (req, res, next) => {
+  try {
+    const data = await notificationService.markAllNotificationsRead(req.user);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    return next(err);
+  }
+};
+
 export default {
   getMyNotifications,
   markNotificationRead,
+  markAllNotificationsRead,
 };

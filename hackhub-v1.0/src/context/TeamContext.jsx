@@ -11,8 +11,9 @@ export const TeamProvider = ({ children }) => {
   const [tasks, setTasks] = useState([]);
   const [submission, setSubmission] = useState(null);
   const [invitations, setInvitations] = useState([]);
+  const [receivedInvitations, setReceivedInvitations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
 
   const loadData = useCallback(async () => {
     if (!user) {
@@ -20,13 +21,19 @@ export const TeamProvider = ({ children }) => {
       setTasks([]);
       setSubmission(null);
       setInvitations([]);
+      setReceivedInvitations([]);
       return;
     }
 
     setIsLoading(true);
     try {
-      const team = await mockTeamService.getCurrentTeam();
+      const [team, received] = await Promise.all([
+        mockTeamService.getCurrentTeam(),
+        mockTeamService.getReceivedInvitations(),
+      ]);
       setCurrentTeam(team);
+      setReceivedInvitations(received);
+
       if (!team?.id) {
         setTasks([]);
         setSubmission(null);
@@ -48,6 +55,7 @@ export const TeamProvider = ({ children }) => {
       setTasks([]);
       setSubmission(null);
       setInvitations([]);
+      setReceivedInvitations([]);
     } finally {
       setIsLoading(false);
     }
@@ -89,23 +97,46 @@ export const TeamProvider = ({ children }) => {
   };
 
   const sendInvitation = async (candidateId, message) => {
-    const invitation = await mockTeamService.sendInvitation(currentTeam?.id, candidateId, message);
-    showSuccess('Invitation sent successfully');
-    return invitation;
+    try {
+      const invitation = await mockTeamService.sendInvitation(currentTeam?.id, candidateId, message);
+      await loadData();
+      showSuccess('Invitation sent successfully');
+      return invitation;
+    } catch (err) {
+      showError(err.message || 'Failed to send invitation');
+      throw err;
+    }
   };
 
   const respondInvitation = async (invitationId, accept) => {
-    const result = await mockTeamService.respondInvitation(invitationId, accept);
-    await loadData();
-    showSuccess(accept ? 'Invitation accepted' : 'Invitation declined');
-    return result;
+    try {
+      const result = await mockTeamService.respondInvitation(invitationId, accept);
+      await loadData();
+      showSuccess(accept ? 'Invitation accepted! You joined the squad.' : 'Invitation declined');
+      return result;
+    } catch (err) {
+      showError(err.message || 'Failed to respond to invitation');
+      throw err;
+    }
+  };
+
+  const createTeam = async (teamData) => {
+    try {
+      const response = await api.post('/teams', teamData);
+      await loadData();
+      showSuccess(`Team "${teamData.name}" created successfully!`);
+      return response.data;
+    } catch (err) {
+      showError(err.message || 'Failed to create team');
+      throw err;
+    }
   };
 
   return (
     <TeamContext.Provider value={{
-      currentTeam, tasks, submission, invitations, isLoading,
+      currentTeam, tasks, submission, invitations, receivedInvitations, isLoading,
       updateTaskStatus, addTask, updateSubmission, submitProject,
-      sendInvitation, respondInvitation, reloadTeam: loadData,
+      sendInvitation, respondInvitation, createTeam, reloadTeam: loadData,
     }}>
       {children}
     </TeamContext.Provider>

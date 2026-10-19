@@ -6,9 +6,58 @@ export const getAssignedTeams = async (user) => {
   const teams = await Team.find({ status: { $in: ['forming', 'active', 'submitted'] } })
     .populate('eventId', 'name slug status submissionDeadline')
     .populate('challengeId', 'title track')
-    .populate('createdBy', 'name email avatarUrl');
+    .populate('createdBy', 'name email avatarUrl')
+    .lean();
 
-  return teams;
+  const { Task } = await import('../models/index.js');
+
+  const enrichedTeams = await Promise.all(
+    teams.map(async (t) => {
+      const [memberships, blockerTask] = await Promise.all([
+        Membership.find({ teamId: t._id, status: 'active' })
+          .populate('userId', 'name email avatarUrl college')
+          .lean(),
+        Task.findOne({ teamId: t._id, status: 'blocked' }).lean(),
+      ]);
+
+      return {
+        ...t,
+        id: t._id.toString(),
+        hackathonTitle: t.eventId?.name || 'Active Hackathon',
+        challengeTitle: t.challengeId?.title || t.track || 'General Challenge Track',
+        blocker: blockerTask ? blockerTask.title : null,
+        members: memberships.map((m) => ({
+          id: m.userId?._id?.toString(),
+          name: m.userId?.name || 'Teammate',
+          email: m.userId?.email,
+          college: m.userId?.college,
+          role: m.role,
+        })),
+      };
+    })
+  );
+
+  return enrichedTeams;
+};
+
+export const getMentorFeedback = async (user) => {
+  const query = user.role === 'ADMIN' ? {} : { mentorId: user._id };
+  const feedbackList = await Feedback.find(query)
+    .populate('teamId', 'name')
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return feedbackList.map((fb) => ({
+    ...fb,
+    id: fb._id.toString(),
+    teamName: fb.teamId?.name || 'Assigned Team',
+    timestamp: new Date(fb.createdAt).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  }));
 };
 
 export const getTeamFeedback = async (teamId) => {
@@ -19,9 +68,19 @@ export const getTeamFeedback = async (teamId) => {
 
   const feedbackList = await Feedback.find({ teamId })
     .populate('mentorId', 'name avatarUrl college')
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
-  return feedbackList;
+  return feedbackList.map((fb) => ({
+    ...fb,
+    id: fb._id.toString(),
+    timestamp: new Date(fb.createdAt).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  }));
 };
 
 export const createFeedback = async (teamId, user, feedbackData) => {
@@ -65,6 +124,7 @@ export const createFeedback = async (teamId, user, feedbackData) => {
 
 export default {
   getAssignedTeams,
+  getMentorFeedback,
   getTeamFeedback,
   createFeedback,
 };

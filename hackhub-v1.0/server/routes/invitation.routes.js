@@ -16,6 +16,9 @@ router.post(
 // GET /api/teams/:teamId/invitations
 router.get('/teams/:teamId/invitations', requireAuth, invitationController.getTeamInvitations);
 
+// GET /api/invitations/received
+router.get('/invitations/received', requireAuth, invitationController.getReceivedInvitations);
+
 // POST /api/invitations/:invitationId/accept
 router.post('/invitations/:invitationId/accept', requireAuth, invitationController.acceptInvitation);
 

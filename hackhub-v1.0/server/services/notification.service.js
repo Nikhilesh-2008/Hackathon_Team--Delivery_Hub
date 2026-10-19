@@ -27,7 +27,13 @@ export const markNotificationRead = async (notificationId, user) => {
   return notification;
 };
 
+export const markAllNotificationsRead = async (user) => {
+  await Notification.updateMany({ userId: user._id, isRead: false }, { $set: { isRead: true } });
+  return { success: true, message: 'All notifications marked as read' };
+};
+
 export default {
   getMyNotifications,
   markNotificationRead,
+  markAllNotificationsRead,
 };

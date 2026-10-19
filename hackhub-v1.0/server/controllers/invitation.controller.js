@@ -19,6 +19,15 @@ export const getTeamInvitations = async (req, res, next) => {
   }
 };
 
+export const getReceivedInvitations = async (req, res, next) => {
+  try {
+    const data = await invitationService.getReceivedInvitations(req.user);
+    return sendCollection(res, data, {}, 200);
+  } catch (err) {
+    return next(err);
+  }
+};
+
 export const acceptInvitation = async (req, res, next) => {
   try {
     const data = await invitationService.acceptInvitation(req.params.invitationId, req.user);
@@ -49,6 +58,7 @@ export const cancelInvitation = async (req, res, next) => {
 export default {
   createInvitation,
   getTeamInvitations,
+  getReceivedInvitations,
   acceptInvitation,
   rejectInvitation,
   cancelInvitation,

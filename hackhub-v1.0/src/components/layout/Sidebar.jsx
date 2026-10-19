@@ -36,10 +36,9 @@ export const Sidebar = ({ isOpen, onClose }) => {
     }
     if (activeRole === 'Judge') {
       return [
-        { to: '/dashboard', label: 'Judge Hub', icon: LayoutDashboard },
-        { to: '/team/submission', label: 'Submissions & Rubrics', icon: ShieldCheck },
+        { to: '/dashboard', label: 'Jury Evaluation Console', icon: LayoutDashboard },
         { to: '/events', label: 'Hackathons', icon: Compass },
-        { to: '/rulebook', label: 'Evaluation Rules', icon: BookOpen },
+        { to: '/rulebook', label: 'Rulebook & Rubrics', icon: BookOpen },
       ];
     }
     if (activeRole === 'Organizer') {

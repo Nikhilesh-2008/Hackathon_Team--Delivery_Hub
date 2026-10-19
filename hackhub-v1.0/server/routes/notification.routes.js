@@ -7,6 +7,9 @@ const router = Router();
 // GET /api/notifications
 router.get('/notifications', requireAuth, notificationController.getMyNotifications);
 
+// PATCH /api/notifications/read-all
+router.patch('/notifications/read-all', requireAuth, notificationController.markAllNotificationsRead);
+
 // PATCH /api/notifications/:notificationId/read
 router.patch('/notifications/:notificationId/read', requireAuth, notificationController.markNotificationRead);
 

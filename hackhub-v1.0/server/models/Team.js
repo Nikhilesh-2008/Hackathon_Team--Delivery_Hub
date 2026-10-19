@@ -28,7 +28,6 @@ const teamSchema = new mongoose.Schema(
     challengeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Challenge',
-      required: [true, 'Challenge reference is required'],
       index: true,
     },
     name: {
@@ -58,6 +57,12 @@ const teamSchema = new mongoose.Schema(
       },
       default: 'forming',
       index: true,
+    },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
     },
     technicalDecisions: [technicalDecisionSchema],
   },

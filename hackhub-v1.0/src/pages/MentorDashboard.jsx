@@ -1,58 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
 import { useToast } from '../context/ToastContext';
-import { mockTeams, mockTasks } from '../data/teams';
-import { mockFeedback } from '../data/reputation';
+import { api } from '../services/api';
 import {
-  GraduationCap,
   MessageSquare,
   AlertTriangle,
-  CheckCircle2,
   Send,
-  Star
+  Sparkles,
+  Users
 } from 'lucide-react';
 
 export const MentorDashboard = () => {
-  const [feedbackList, setFeedbackList] = useState(mockFeedback);
+  const [teams, setTeams] = useState([]);
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackRating, setFeedbackRating] = useState('4.5');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [teamsRes, feedbackRes] = await Promise.allSettled([
+        api.get('/mentor/teams'),
+        api.get('/mentor/feedback'),
+      ]);
+
+      if (teamsRes.status === 'fulfilled' && teamsRes.value?.data) {
+        setTeams(teamsRes.value.data);
+      }
+      if (feedbackRes.status === 'fulfilled' && feedbackRes.value?.data) {
+        setFeedbackList(feedbackRes.value.data);
+      }
+    } catch (err) {
+      console.error('Failed to load mentor dashboard data', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleOpenFeedback = (team) => {
     setSelectedTeam(team);
     setFeedbackTitle('');
     setFeedbackComment('');
+    setFeedbackRating('4.5');
     setIsModalOpen(true);
   };
 
-  const handleSubmitFeedback = (e) => {
+  const handleSubmitFeedback = async (e) => {
     e.preventDefault();
-    if (!feedbackTitle.trim() || !feedbackComment.trim()) return;
+    if (!feedbackTitle.trim() || !feedbackComment.trim() || !selectedTeam) return;
 
-    const newFb = {
-      id: `fb_${Date.now()}`,
-      teamId: selectedTeam.id,
-      authorName: "Dr. Arvind Rao",
-      authorRole: "Faculty Mentor · AI & Distributed Systems",
-      timestamp: "Just now",
-      rating: parseFloat(feedbackRating),
-      title: feedbackTitle.trim(),
-      comment: feedbackComment.trim(),
-      recommendations: ["Review API response times", "Ensure code reproducibility"]
-    };
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        title: feedbackTitle.trim(),
+        message: feedbackComment.trim(),
+        rating: parseFloat(feedbackRating),
+        recommendations: ['Maintain unit tests', 'Document API contracts'],
+      };
 
-    setFeedbackList([newFb, ...feedbackList]);
-    setIsModalOpen(false);
-    showSuccess("Feedback sent to team sprint board!");
+      const res = await api.post(`/teams/${selectedTeam.id || selectedTeam._id}/feedback`, payload);
+      const created = res.data;
+
+      setFeedbackList((prev) => [
+        {
+          id: created?._id || `fb_${Date.now()}`,
+          title: created?.title || payload.title,
+          comment: created?.message || payload.message,
+          message: created?.message || payload.message,
+          rating: created?.rating || payload.rating,
+          timestamp: 'Just now',
+          teamName: selectedTeam.name,
+        },
+        ...prev,
+      ]);
+
+      setIsModalOpen(false);
+      showSuccess(`Mentorship feedback sent to ${selectedTeam.name}!`);
+    } catch (err) {
+      showError(err.message || 'Failed to submit feedback');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -66,49 +111,72 @@ export const MentorDashboard = () => {
       {/* Assigned Teams Section */}
       <div>
         <h3 className="text-base font-bold text-[#172033] mb-3">Assigned Hackathon Teams</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {mockTeams.map((team) => (
-            <Card key={team.id} className="p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h4 className="font-bold text-base text-[#172033]">{team.name}</h4>
-                  <Badge variant="primary" size="sm">{team.progress}% Done</Badge>
-                </div>
-                <p className="text-xs text-indigo-700 font-medium mb-1">{team.hackathonTitle}</p>
-                <p className="text-xs text-[#64748B] mb-3">{team.challengeTitle}</p>
+        {loading ? (
+          <div className="p-8 text-center text-slate-500 bg-white rounded-2xl border border-slate-200">
+            Loading assigned teams...
+          </div>
+        ) : teams.length === 0 ? (
+          <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 space-y-2">
+            <Users className="mx-auto text-slate-400" size={32} />
+            <p className="text-sm font-semibold text-slate-700">No Teams Assigned Yet</p>
+            <p className="text-xs text-slate-500">Student teams participating in active hackathons will appear here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {teams.map((team) => (
+              <Card key={team.id || team._id} className="p-5 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h4 className="font-bold text-base text-[#172033]">{team.name}</h4>
+                    <Badge variant="primary" size="sm">{team.progress || 0}% Done</Badge>
+                  </div>
+                  <p className="text-xs text-indigo-700 font-medium mb-1">
+                    {team.hackathonTitle || team.eventId?.name || 'NexusHack 2026'}
+                  </p>
+                  <p className="text-xs text-[#64748B] mb-3">
+                    {team.challengeTitle || team.challengeId?.title || team.track || 'AI & Cloud Track'}
+                  </p>
 
-                <ProgressBar value={team.progress} size="sm" color="primary" className="mb-4" />
+                  <ProgressBar value={team.progress || 0} size="sm" color="primary" className="mb-4" />
 
-                {/* Team Blocker Indicator */}
-                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 mb-4 flex items-start gap-2">
-                  <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Active Blocker:</span>
-                    <p className="text-[11px] text-amber-800">Render deployment SSL/CORS setup</p>
+                  {/* Team Blocker Indicator */}
+                  {team.blocker ? (
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 mb-4 flex items-start gap-2">
+                      <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Active Blocker:</span>
+                        <p className="text-[11px] text-amber-800">{team.blocker}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 text-[11px] text-emerald-800 mb-4 flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-emerald-600 shrink-0" />
+                      <span>Sprint running on schedule</span>
+                    </div>
+                  )}
+
+                  <div className="flex -space-x-1.5 overflow-hidden mb-2">
+                    {(team.members || []).map((m) => (
+                      <Avatar key={m.id || m.name} name={m.name} size="xs" className="ring-2 ring-white" />
+                    ))}
                   </div>
                 </div>
 
-                <div className="flex -space-x-1.5 overflow-hidden mb-2">
-                  {team.members?.map((m) => (
-                    <Avatar key={m.id} name={m.name} size="xs" className="ring-2 ring-white" />
-                  ))}
+                <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-end">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleOpenFeedback(team)}
+                    className="gap-1.5"
+                  >
+                    <MessageSquare size={14} />
+                    <span>Leave Feedback</span>
+                  </Button>
                 </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-end">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => handleOpenFeedback(team)}
-                  className="gap-1.5"
-                >
-                  <MessageSquare size={14} />
-                  <span>Leave Feedback</span>
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Published Feedback Log */}
@@ -117,20 +185,29 @@ export const MentorDashboard = () => {
           Recent Mentorship Logs & Notes
         </h3>
 
-        <div className="space-y-4">
-          {feedbackList.map((fb) => (
-            <div key={fb.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-[#172033]">{fb.title}</span>
-                  <Badge variant="success" size="sm">{fb.rating} ★</Badge>
+        {feedbackList.length === 0 ? (
+          <p className="text-xs text-slate-500 py-3">No mentorship logs posted yet. Select a team above to provide architectural feedback.</p>
+        ) : (
+          <div className="space-y-4">
+            {feedbackList.map((fb) => (
+              <div key={fb.id || fb._id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-[#172033]">{fb.title}</span>
+                    {fb.teamName && (
+                      <Badge variant="default" size="sm">Team: {fb.teamName}</Badge>
+                    )}
+                    <Badge variant="success" size="sm">{fb.rating || 5} ★</Badge>
+                  </div>
+                  <span className="text-xs text-slate-400">{fb.timestamp}</span>
                 </div>
-                <span className="text-xs text-slate-400">{fb.timestamp}</span>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                  {fb.comment || fb.message}
+                </p>
               </div>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">{fb.comment}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       {/* Feedback Modal */}
@@ -178,8 +255,8 @@ export const MentorDashboard = () => {
             <Button variant="secondary" size="sm" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" size="sm">
-              Send Mentorship Note
+            <Button type="submit" variant="primary" size="sm" disabled={isSubmitting}>
+              {isSubmitting ? 'Sending...' : 'Send Mentorship Note'}
             </Button>
           </div>
         </form>

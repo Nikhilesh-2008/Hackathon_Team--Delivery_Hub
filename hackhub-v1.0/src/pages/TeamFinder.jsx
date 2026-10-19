@@ -78,14 +78,18 @@ export const TeamFinder = () => {
 
   const handleOpenInvite = (candidate) => {
     setSelectedCandidate(candidate);
-    setInviteMessage(`Hey ${candidate.name}, we'd love to invite you to Team Nova for the NexusHack AI Challenge!`);
+    setInviteMessage(`Hey ${candidate.name}, let's build together for the hackathon!`);
     setIsInviteModalOpen(true);
   };
 
   const handleSendInvite = async () => {
     if (!selectedCandidate) return;
-    await sendInvitation(selectedCandidate.id, inviteMessage);
-    setIsInviteModalOpen(false);
+    try {
+      await sendInvitation(selectedCandidate.id, inviteMessage);
+      setIsInviteModalOpen(false);
+    } catch {
+      // Handled by Toast in TeamContext
+    }
   };
 
   const handleApplyPresetNL = (promptText) => {

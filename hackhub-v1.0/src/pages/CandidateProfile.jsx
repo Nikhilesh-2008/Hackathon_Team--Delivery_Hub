@@ -277,8 +277,12 @@ export const CandidateProfile = () => {
               variant="primary"
               size="sm"
               onClick={async () => {
-                await sendInvitation(candidate.id, inviteNote);
-                setIsInviteOpen(false);
+                try {
+                  await sendInvitation(candidate.id, inviteNote);
+                  setIsInviteOpen(false);
+                } catch {
+                  // Error handled by ToastContext in sendInvitation
+                }
               }}
             >
               Send Invitation
