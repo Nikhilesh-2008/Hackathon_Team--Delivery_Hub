@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Event, Challenge, Rubric, AuditLog, User } from '../models/index.js';
+import { Event, Challenge, Rubric, AuditLog, User, EventRegistration, Team } from '../models/index.js';
 import { AppError } from '../utils/response.js';
 
 export const listEvents = async (query = {}, currentUser = null) => {
@@ -43,7 +43,7 @@ export const listEvents = async (query = {}, currentUser = null) => {
   };
 };
 
-export const getEventById = async (eventId) => {
+export const getEventById = async (eventId, currentUser = null) => {
   let event = null;
   if (mongoose.Types.ObjectId.isValid(eventId)) {
     event = await Event.findById(eventId);
@@ -60,10 +60,27 @@ export const getEventById = async (eventId) => {
   const challenges = await Challenge.find({ eventId: event._id });
   const rubric = await Rubric.findOne({ eventId: event._id, isActive: true });
 
+  // Participant-specific registration state (registered team in this hackathon)
+  let myRegistration = null;
+  let myTeam = null;
+  if (currentUser) {
+    myRegistration = await EventRegistration.findOne({
+      eventId: event._id,
+      userId: currentUser._id,
+      status: 'registered',
+    }).lean();
+
+    if (myRegistration?.teamId) {
+      myTeam = await Team.findById(myRegistration.teamId).select('name status eventId challengeId');
+    }
+  }
+
   return {
     event,
     challenges,
     rubric: rubric || null,
+    myRegistration: myRegistration || null,
+    myTeam: myTeam || null,
   };
 };
 

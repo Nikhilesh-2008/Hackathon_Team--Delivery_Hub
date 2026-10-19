@@ -299,6 +299,28 @@ export const CANONICAL_ROUTES = [
     service: 'ProfileService.updateMyProfile',
     purpose: 'Update user profile bio, skills, availability, and discoveryConsent',
   },
+  {
+    method: 'POST',
+    path: '/api/profiles/me/certificates',
+    domain: 'PROFILES',
+    auth: true,
+    roles: ['PARTICIPANT', 'MENTOR', 'JUDGE', 'ORGANIZER', 'ADMIN'],
+    params: [],
+    controller: 'ProfileController.addCertificate',
+    service: 'ProfileService.addCertificate',
+    purpose: 'Upload a certificate file (PDF/image) and attach it to the profile',
+  },
+  {
+    method: 'DELETE',
+    path: '/api/profiles/me/certificates/:certificateId',
+    domain: 'PROFILES',
+    auth: true,
+    roles: ['PARTICIPANT', 'MENTOR', 'JUDGE', 'ORGANIZER', 'ADMIN'],
+    params: ['certificateId'],
+    controller: 'ProfileController.removeCertificate',
+    service: 'ProfileService.removeCertificate',
+    purpose: 'Delete a certificate and its uploaded file from the profile',
+  },
 
   // ================= DISCOVERY =================
   {
@@ -368,6 +390,28 @@ export const CANONICAL_ROUTES = [
     controller: 'TeamController.getTeamMembers',
     service: 'TeamService.getTeamMembers',
     purpose: 'List active members of a team with roles and responsibilities',
+  },
+  {
+    method: 'GET',
+    path: '/api/teams/:teamId/messages',
+    domain: 'TEAM CHAT',
+    auth: true,
+    roles: ['PARTICIPANT', 'MENTOR', 'JUDGE', 'ORGANIZER', 'ADMIN'],
+    params: ['teamId'],
+    controller: 'TeamController.getTeamMessages',
+    service: 'TeamService.getTeamMessages',
+    purpose: 'List persisted team chat messages ordered by creation time',
+  },
+  {
+    method: 'POST',
+    path: '/api/teams/:teamId/messages',
+    domain: 'TEAM CHAT',
+    auth: true,
+    roles: ['PARTICIPANT', 'ADMIN'],
+    params: ['teamId'],
+    controller: 'TeamController.createTeamMessage',
+    service: 'TeamService.createTeamMessage',
+    purpose: 'Send a chat message to the team as the authenticated member',
   },
 
   // ================= JOIN REQUESTS =================

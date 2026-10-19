@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Users,
@@ -20,12 +20,47 @@ import { Avatar } from '../components/ui/Avatar';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Tabs } from '../components/ui/Tabs';
 import { useTeam } from '../context/TeamContext';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { api } from '../services/api';
 
 export const TeamWorkspace = () => {
-  const { currentTeam, tasks, updateTaskStatus } = useTeam();
+  const { currentTeam, tasks, updateTaskStatus, reloadTeam } = useTeam();
+  const { user } = useAuth();
+  const { showError } = useToast();
   const [activeTab, setActiveTab] = useState('members');
   const [chatInput, setChatInput] = useState('');
-  const [messages, setMessages] = useState(currentTeam?.chatMessages || []);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  const teamId = currentTeam?.id || currentTeam?._id;
+  const myUserId = user?.id || user?._id;
+
+  const loadMessages = useCallback(async () => {
+    if (!teamId) {
+      setMessages([]);
+      return;
+    }
+    setMessagesLoading(true);
+    try {
+      const response = await api.get(`/teams/${teamId}/messages`);
+      setMessages(response.data || []);
+    } catch (error) {
+      showError?.(error.message || 'Could not load team chat');
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [teamId]);
+
+  useEffect(() => {
+    // Pick up teams created after the context originally loaded
+    reloadTeam?.();
+  }, [reloadTeam]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
 
   const tabs = [
     { id: 'members', label: `Members (${currentTeam?.members?.length || 4})` },
@@ -33,18 +68,21 @@ export const TeamWorkspace = () => {
     { id: 'chat', label: 'Team Chat' },
   ];
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
-    const newMsg = {
-      id: `m_${Date.now()}`,
-      senderId: "usr_karthik",
-      senderName: "Karthik",
-      text: chatInput.trim(),
-      timestamp: "Just now"
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setChatInput('');
+    const text = chatInput.trim();
+    if (!text || !teamId || isSending) return;
+
+    setIsSending(true);
+    try {
+      const response = await api.post(`/teams/${teamId}/messages`, { text });
+      setMessages((prev) => [...prev, response.data]);
+      setChatInput('');
+    } catch (error) {
+      showError(error.message || 'Message could not be sent');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -156,21 +194,28 @@ export const TeamWorkspace = () => {
         <Card className="p-5 flex flex-col h-[500px]">
           <div className="pb-3 border-b border-[#E2E8F0]">
             <h3 className="text-sm font-bold text-[#172033]">Team Sprint Channel</h3>
-            <p className="text-xs text-[#64748B]">Real-time mock coordination for Team Nova</p>
+            <p className="text-xs text-[#64748B]">Messages are saved for every member of {currentTeam?.name || 'your team'}.</p>
           </div>
 
           <div className="flex-1 overflow-y-auto py-4 space-y-3">
-            {messages.map((m) => {
-              const isMe = m.senderId === "usr_karthik";
+            {messagesLoading ? (
+              <p className="text-xs text-slate-500">Loading messages…</p>
+            ) : messages.length === 0 ? (
+              <p className="text-xs text-slate-500">No messages yet. Say hello to your team.</p>
+            ) : messages.map((m) => {
+              const isMe = String(m.senderId) === String(myUserId);
+              const timestamp = m.createdAt
+                ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '';
               return (
-                <div key={m.id} className={`flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+                <div key={m.id || m._id} className={`flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
                   <Avatar name={m.senderName} size="sm" />
                   <div className={`max-w-[75%] p-3 rounded-2xl text-xs sm:text-sm ${
                     isMe ? 'bg-[#4F46E5] text-white rounded-tr-none' : 'bg-slate-100 text-[#172033] rounded-tl-none'
                   }`}>
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-bold text-xs">{m.senderName}</span>
-                      <span className={`text-[10px] ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>{m.timestamp}</span>
+                      <span className="font-bold text-xs">{isMe ? 'You' : m.senderName}</span>
+                      <span className={`text-[10px] ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>{timestamp}</span>
                     </div>
                     <p>{m.text}</p>
                   </div>
@@ -187,7 +232,7 @@ export const TeamWorkspace = () => {
               placeholder="Send message to team members..."
               className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-[#172033] focus:outline-none focus:border-[#4F46E5] focus:bg-white"
             />
-            <Button type="submit" variant="primary" size="sm">
+            <Button type="submit" variant="primary" size="sm" disabled={!teamId || isSending || !chatInput.trim()}>
               <Send size={15} />
             </Button>
           </form>

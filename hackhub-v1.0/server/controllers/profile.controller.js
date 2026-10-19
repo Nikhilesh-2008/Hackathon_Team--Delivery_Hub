@@ -28,8 +28,28 @@ export const getProfileById = async (req, res, next) => {
   }
 };
 
+export const addCertificate = async (req, res, next) => {
+  try {
+    const data = await profileService.addCertificate(req.user._id, req.file, req.body);
+    return sendSuccess(res, data, 201);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+export const removeCertificate = async (req, res, next) => {
+  try {
+    const data = await profileService.removeCertificate(req.user._id, req.params.certificateId);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    return next(err);
+  }
+};
+
 export default {
   getMyProfile,
   updateMyProfile,
   getProfileById,
+  addCertificate,
+  removeCertificate,
 };

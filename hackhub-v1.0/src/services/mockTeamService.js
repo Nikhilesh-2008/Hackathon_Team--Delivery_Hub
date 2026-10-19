@@ -42,8 +42,13 @@ export const mockTeamService = {
 
   getInvitations: async (teamId) => {
     if (!teamId) return [];
-    const response = await api.get(`/teams/${teamId}/invitations`);
-    return response.data || [];
+    try {
+      const response = await api.get(`/teams/${teamId}/invitations`);
+      return response.data || [];
+    } catch {
+      // Only captains may read sent invitations; members simply see none
+      return [];
+    }
   },
 
   getReceivedInvitations: async () => {

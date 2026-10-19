@@ -1,4 +1,15 @@
-import { Team, Membership, Event, Challenge, User, AuditLog, Notification, Task } from '../models/index.js';
+import {
+  Team,
+  Membership,
+  Event,
+  Challenge,
+  User,
+  AuditLog,
+  Notification,
+  Task,
+  EventRegistration,
+  ChatMessage,
+} from '../models/index.js';
 import { AppError } from '../utils/response.js';
 
 export const createTeam = async (user, { eventId, challengeId, name, description, technicalDecisions = [] }) => {
@@ -65,6 +76,13 @@ export const createTeam = async (user, { eventId, challengeId, name, description
     status: 'active',
     responsibilities: ['Team Lead', 'Product Delivery'],
   });
+
+  // Register the captain for the hackathon (idempotent via unique eventId+userId index)
+  await EventRegistration.findOneAndUpdate(
+    { eventId: event._id, userId: user._id },
+    { $set: { teamId: team._id, status: 'registered', registeredAt: new Date() } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 
   await AuditLog.create({
     eventId: event._id,
@@ -188,9 +206,50 @@ export const getTeamMembers = async (teamId) => {
   }));
 };
 
+const presentMessage = (message) => ({
+  id: message._id,
+  text: message.text,
+  senderId: message.senderId?._id || message.senderId,
+  senderName: message.senderId?.name || 'Former member',
+  senderAvatarUrl: message.senderId?.avatarUrl || '',
+  createdAt: message.createdAt,
+});
+
+export const getTeamMessages = async (teamId, { limit = 100 } = {}) => {
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 200);
+  const messages = await ChatMessage.find({ teamId })
+    .sort({ createdAt: -1 })
+    .limit(safeLimit)
+    .populate('senderId', 'name avatarUrl role')
+    .lean();
+
+  return messages.reverse().map(presentMessage);
+};
+
+export const createTeamMessage = async (team, user, { text } = {}) => {
+  const trimmed = typeof text === 'string' ? text.trim() : '';
+  if (!trimmed) {
+    throw new AppError('VALIDATION_ERROR', 'Message text is required', 400);
+  }
+  if (trimmed.length > 2000) {
+    throw new AppError('VALIDATION_ERROR', 'Message cannot exceed 2000 characters', 400);
+  }
+
+  const message = await ChatMessage.create({
+    teamId: team._id,
+    senderId: user._id,
+    text: trimmed,
+  });
+
+  await message.populate('senderId', 'name avatarUrl role');
+  return presentMessage(message);
+};
+
 export default {
   createTeam,
   getTeamById,
   updateTeam,
   getTeamMembers,
+  getTeamMessages,
+  createTeamMessage,
 };

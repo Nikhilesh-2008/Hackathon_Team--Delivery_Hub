@@ -12,7 +12,7 @@ export const listEvents = async (req, res, next) => {
 
 export const getEventById = async (req, res, next) => {
   try {
-    const data = await eventService.getEventById(req.params.eventId);
+    const data = await eventService.getEventById(req.params.eventId, req.user || null);
     return sendSuccess(res, data, 200);
   } catch (err) {
     return next(err);

@@ -1,9 +1,30 @@
 import crypto from 'crypto';
 import { User, Profile, Session, Membership, Reputation, Invitation, AuditLog } from '../models/index.js';
+import { SPECIALIZATIONS } from '../models/Profile.js';
 import { hashPassword, comparePassword, hashToken, generateAuthToken, generateRandomToken } from '../utils/auth.js';
 import { AppError } from '../utils/response.js';
 
-export const register = async ({ name, email, password, college, graduationYear, role }) => {
+const cleanStringList = (value, maxItems = 40) =>
+  Array.isArray(value)
+    ? value
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, maxItems)
+    : [];
+
+export const register = async ({
+  name,
+  email,
+  password,
+  college,
+  graduationYear,
+  role,
+  specialization,
+  skills,
+  interests,
+  availability,
+}) => {
   const allowedRoles = ['PARTICIPANT', 'MENTOR', 'JUDGE'];
   const userRole = (role || 'PARTICIPANT').toUpperCase();
   if (!allowedRoles.includes(userRole)) {
@@ -39,12 +60,13 @@ export const register = async ({ name, email, password, college, graduationYear,
   // Create initialized profile with rollback safety
   let profile;
   try {
+    const cleanSpecialization = SPECIALIZATIONS.includes(specialization) ? specialization : 'Generalist';
     profile = await Profile.create({
       userId: user._id,
-      specialization: 'Generalist',
-      skills: [],
-      interests: [],
-      availability: '8-10 hrs/week',
+      specialization: cleanSpecialization,
+      skills: cleanStringList(skills),
+      interests: cleanStringList(interests),
+      availability: typeof availability === 'string' && availability.trim() ? availability.trim() : '8-10 hrs/week',
       discoveryConsent: true,
     });
   } catch (profileErr) {
@@ -75,6 +97,9 @@ export const register = async ({ name, email, password, college, graduationYear,
     },
     profile: {
       specialization: profile.specialization,
+      skills: profile.skills || [],
+      interests: profile.interests || [],
+      availability: profile.availability,
       discoveryConsent: profile.discoveryConsent,
     },
     token,

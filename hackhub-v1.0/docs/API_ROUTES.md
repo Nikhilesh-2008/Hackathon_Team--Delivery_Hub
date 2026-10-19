@@ -94,6 +94,8 @@
 | **PROFILES** | | | | | | |
 | GET | `/api/profiles/me` | Yes | ALL | Retrieve authenticated user detailed profile | ProfileController.getMyProfile | ProfileService.getMyProfile |
 | PATCH | `/api/profiles/me` | Yes | ALL | Update user profile bio, skills, availability, and discoveryConsent | ProfileController.updateMyProfile | ProfileService.updateMyProfile |
+| POST | `/api/profiles/me/certificates` | Yes | ALL | Upload a certificate file (PDF/image) and attach it to the profile | ProfileController.addCertificate | ProfileService.addCertificate |
+| DELETE | `/api/profiles/me/certificates/:certificateId` | Yes | ALL | Delete a certificate and its uploaded file from the profile | ProfileController.removeCertificate | ProfileService.removeCertificate |
 | **DISCOVERY** | | | | | | |
 | POST | `/api/discovery/challenges` | No | Public | Filter and search challenges by difficulty, tags, or keywords | DiscoveryController.discoverChallenges | DiscoveryService.discoverChallenges |
 | POST | `/api/discovery/teammates` | Yes | PARTICIPANT, ORGANIZER, ADMIN | Discover candidate teammates respecting discoveryConsent === true | DiscoveryController.discoverTeammates | DiscoveryService.discoverTeammates |
@@ -102,6 +104,8 @@
 | GET | `/api/teams/:teamId` | Yes | Team Members, Staff | Get team workspace summary, challenge, decisions, and progress | TeamController.getTeamById | TeamService.getTeamById |
 | PATCH | `/api/teams/:teamId` | Yes | Team Captain, ADMIN | Update team name, description, or technical decisions | TeamController.updateTeam | TeamService.updateTeam |
 | GET | `/api/teams/:teamId/members` | Yes | ALL | List active members of a team with roles and responsibilities | TeamController.getTeamMembers | TeamService.getTeamMembers |
+| GET | `/api/teams/:teamId/messages` | Yes | ALL | List persisted team chat messages ordered by creation time | TeamController.getTeamMessages | TeamService.getTeamMessages |
+| POST | `/api/teams/:teamId/messages` | Yes | Team Members, ADMIN | Send a chat message to the team as the authenticated member | TeamController.createTeamMessage | TeamService.createTeamMessage |
 | **JOIN REQUESTS** | | | | | | |
 | POST | `/api/teams/:teamId/join-requests` | Yes | PARTICIPANT, ADMIN | Submit join request to a team (prevents duplicate pending requests) | JoinRequestController.createJoinRequest | JoinRequestService.createJoinRequest |
 | GET | `/api/teams/:teamId/join-requests` | Yes | Team Captain, ADMIN | List pending join requests for a team | JoinRequestController.getTeamJoinRequests | JoinRequestService.getTeamJoinRequests |

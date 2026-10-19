@@ -32,6 +32,11 @@ const certificateSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     issuer: { type: String, required: true, trim: true },
     date: { type: String, trim: true },
+    fileUrl: { type: String, trim: true, default: '' },
+    originalName: { type: String, trim: true, default: '' },
+    mimeType: { type: String, trim: true, default: '' },
+    size: { type: Number, default: 0 },
+    uploadedAt: { type: Date },
   },
   { _id: true }
 );

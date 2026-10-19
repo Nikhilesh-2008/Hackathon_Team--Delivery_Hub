@@ -64,11 +64,22 @@ export const discoverTeammates = async (filters = {}, requestingUser = null) => 
     const tokens = q.split(/\s+/).filter((t) => t.length > 2);
     const searchTerms = [q, ...tokens];
     const regexList = searchTerms.map((term) => new RegExp(term, 'i'));
+
+    // Also match the person's account fields so members can be found by name or college
+    const matchingUsers = await User.find({
+      $or: [
+        { name: { $in: regexList } },
+        { college: { $in: regexList } },
+        { email: { $in: regexList } },
+      ],
+    }).select('_id').limit(50);
+
     filter.$or = [
       { bio: { $in: regexList } },
       { specialization: { $in: regexList } },
       { skills: { $in: regexList } },
       { interests: { $in: regexList } },
+      { userId: { $in: matchingUsers.map((user) => user._id) } },
     ];
   }
 

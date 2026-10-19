@@ -37,9 +37,29 @@ export const getTeamMembers = async (req, res, next) => {
   }
 };
 
+export const getTeamMessages = async (req, res, next) => {
+  try {
+    const data = await teamService.getTeamMessages(req.params.teamId, req.query);
+    return sendCollection(res, data, {}, 200);
+  } catch (err) {
+    return next(err);
+  }
+};
+
+export const createTeamMessage = async (req, res, next) => {
+  try {
+    const data = await teamService.createTeamMessage(req.team, req.user, req.body);
+    return sendSuccess(res, data, 201);
+  } catch (err) {
+    return next(err);
+  }
+};
+
 export default {
   createTeam,
   getTeamById,
   updateTeam,
   getTeamMembers,
+  getTeamMessages,
+  createTeamMessage,
 };

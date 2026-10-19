@@ -75,6 +75,40 @@ class ApiClient {
   delete(endpoint, options = {}) {
     return this.request(endpoint, { ...options, method: 'DELETE' });
   }
+
+  // multipart/form-data upload (browser sets the boundary header automatically)
+  async upload(endpoint, formData, options = {}) {
+    const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const headers = { ...options.headers };
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        method: 'POST',
+        headers,
+        body: formData,
+        credentials: 'include',
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const error = new Error(data?.error?.message || data.message || `HTTP Error ${response.status}: ${response.statusText}`);
+        error.status = response.status;
+        error.code = data?.error?.code || `HTTP_${response.status}`;
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.warn(`[ApiClient Error] POST ${url}:`, error.message);
+      throw error;
+    }
+  }
 }
 
 export const api = new ApiClient(BASE_URL);

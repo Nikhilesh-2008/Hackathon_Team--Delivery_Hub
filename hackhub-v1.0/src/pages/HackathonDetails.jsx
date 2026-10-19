@@ -18,23 +18,51 @@ import { Badge } from '../components/ui/Badge';
 import { Tabs } from '../components/ui/Tabs';
 import { useToast } from '../context/ToastContext';
 import { mockEventService } from '../services/mockEventService';
+import { RegisterEventModal } from '../components/events/RegisterEventModal';
 
 export const HackathonDetails = () => {
   const { id } = useParams();
   const [event, setEvent] = useState(null);
   const [activeTab, setActiveTab] = useState('challenges');
-  const { showSuccess } = useToast();
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetch = async () => {
-      const data = await mockEventService.getHackathonById(id || "hack_nexus_2026");
+  const loadEvent = async () => {
+    try {
+      setLoadError('');
+      const data = await mockEventService.getHackathonById(id);
       setEvent(data);
-    };
-    fetch();
+    } catch (error) {
+      setLoadError(error.message || 'Could not load this hackathon.');
+    }
+  };
+
+  useEffect(() => {
+    loadEvent();
   }, [id]);
 
+  const handleRegistered = async ({ teamName, invitesSent = 0, inviteFailures = [] }) => {
+    showSuccess(`Registered for ${event?.title}! ${teamName} is ready${invitesSent > 0 ? ` · ${invitesSent} invite${invitesSent === 1 ? '' : 's'} sent` : ''}.`);
+    if (inviteFailures.length > 0) {
+      showError(`Some invitations failed: ${inviteFailures.join('; ')}`);
+    }
+    await loadEvent();
+  };
+
+  if (loadError) {
+    return (
+      <div className="space-y-4 p-6 text-center">
+        <p className="text-sm font-semibold text-slate-700">{loadError}</p>
+        <NavLink to="/events"><Button variant="secondary" size="sm">Back to events</Button></NavLink>
+      </div>
+    );
+  }
+
   if (!event) return <div className="p-8 text-center text-slate-500">Loading hackathon details...</div>;
+
+  const isRegistered = Boolean(event.myRegistration);
 
   const tabs = [
     { id: 'challenges', label: `Challenges (${event.challenges?.length || 0})` },
@@ -58,7 +86,7 @@ export const HackathonDetails = () => {
               <Badge variant={event.status === 'Active' ? 'success' : 'primary'}>
                 {event.status} Hackathon
               </Badge>
-              <Badge variant="warning">{event.registrationStatus} Registration</Badge>
+              <Badge variant={isRegistered ? 'success' : 'warning'}>{isRegistered ? 'Registered' : 'Open'} Registration</Badge>
               <span className="text-xs font-semibold text-[#64748B]">{event.organizer}</span>
             </div>
 
@@ -87,13 +115,21 @@ export const HackathonDetails = () => {
           </div>
 
           <div className="flex flex-row md:flex-col gap-2.5 shrink-0">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => showSuccess("Registered for hackathon! Now create or join a team.")}
-            >
-              Join Hackathon
-            </Button>
+            {isRegistered ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 space-y-1 min-w-[190px]">
+                <p className="flex items-center gap-1.5 font-bold">
+                  <CheckCircle2 size={15} /> Registered
+                </p>
+                <p>{event.myTeam?.name || 'Your team'} · {event.myRegistration?.status === 'registered' ? 'You are on the roster' : ''}</p>
+                <NavLink to="/team" className="inline-block font-semibold text-emerald-700 hover:underline">
+                  Open team workspace →
+                </NavLink>
+              </div>
+            ) : (
+              <Button variant="primary" size="md" onClick={() => setIsRegisterOpen(true)}>
+                Register &amp; Create Team
+              </Button>
+            )}
             <NavLink to="/team-finder">
               <Button variant="secondary" size="md" className="w-full">
                 Find Teammates
@@ -149,7 +185,7 @@ export const HackathonDetails = () => {
           <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
             <div>
               <h3 className="text-base font-bold text-[#172033]">Official Rulebook & Code of Conduct</h3>
-              <p className="text-xs text-[#64748B]">Rulebook v2 · Enforced by organizing committee</p>
+              <p className="text-xs text-[#64748B]">Enforced by the organizing committee</p>
             </div>
             <NavLink to="/rulebook">
               <Button size="sm" variant="ghost" className="gap-1">
@@ -159,25 +195,36 @@ export const HackathonDetails = () => {
             </NavLink>
           </div>
 
-          <div className="space-y-4 divide-y divide-slate-100">
-            {event.rules?.map((rule) => (
-              <div key={rule.id} className="pt-3 first:pt-0">
-                <h4 className="text-sm font-bold text-[#172033]">
-                  {rule.section} {rule.title}
-                </h4>
-                <p className="text-xs sm:text-sm text-[#64748B] mt-1 leading-relaxed">
-                  {rule.text}
-                </p>
-              </div>
-            ))}
-          </div>
+          {event.rules?.length > 0 ? (
+            <div className="space-y-4 divide-y divide-slate-100">
+              {event.rules.map((rule) => (
+                <div key={rule.id} className="pt-3 first:pt-0">
+                  <h4 className="text-sm font-bold text-[#172033]">
+                    {rule.section} {rule.title}
+                  </h4>
+                  <p className="text-xs sm:text-sm text-[#64748B] mt-1 leading-relaxed">
+                    {rule.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 text-center space-y-2">
+              <BookOpen className="mx-auto text-slate-400" size={24} />
+              <p className="text-sm font-semibold text-slate-700">Rulebook published in the Rulebook AI assistant</p>
+              <p className="text-xs text-slate-500">Ask the assistant about eligibility, team size, submission rules, and code of conduct.</p>
+              <NavLink to="/rulebook">
+                <Button size="sm" variant="secondary" className="mt-1">Open Rulebook AI</Button>
+              </NavLink>
+            </div>
+          )}
         </Card>
       )}
 
       {/* Tab 3: Judging Criteria */}
       {activeTab === 'judging' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {event.judgingCriteria?.map((crit, idx) => (
+          {(event.judgingCriteria?.length ? event.judgingCriteria : [{ criteria: 'Judging rubric not published yet', weight: '—', desc: 'The organizer has not published judging criteria for this event.' }]).map((crit, idx) => (
             <Card key={idx} className="p-5">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-sm font-bold text-[#172033]">{crit.criteria}</h4>
@@ -188,6 +235,12 @@ export const HackathonDetails = () => {
           ))}
         </div>
       )}
+      <RegisterEventModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        event={event}
+        onRegistered={handleRegistered}
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { Invitation, Team, Membership, Event, Notification, User } from '../models/index.js';
+import { Invitation, Team, Membership, Event, Notification, User, EventRegistration } from '../models/index.js';
 import { AppError } from '../utils/response.js';
 
 export const createInvitation = async (user, teamId, { inviteeId, message = '', role = 'member' }) => {
@@ -132,6 +132,13 @@ export const acceptInvitation = async (invitationId, user) => {
     role: invitation.role || 'member',
     status: 'active',
   });
+
+  // Register the new member for the hackathon alongside their team
+  await EventRegistration.findOneAndUpdate(
+    { eventId: team.eventId, userId: user._id },
+    { $set: { teamId: team._id, status: 'registered', registeredAt: new Date() } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 
   // Notify captain
   await Notification.create({

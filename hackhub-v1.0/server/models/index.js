@@ -4,6 +4,8 @@ import { Event, Hackathon } from './Event.js';
 import Challenge from './Challenge.js';
 import Team from './Team.js';
 import Membership from './Membership.js';
+import EventRegistration from './EventRegistration.js';
+import ChatMessage from './ChatMessage.js';
 import JoinRequest from './JoinRequest.js';
 import Invitation from './Invitation.js';
 import Task from './Task.js';
@@ -28,6 +30,8 @@ export {
   Challenge,
   Team,
   Membership,
+  EventRegistration,
+  ChatMessage,
   JoinRequest,
   Invitation,
   Task,
@@ -53,6 +57,8 @@ export default {
   Challenge,
   Team,
   Membership,
+  EventRegistration,
+  ChatMessage,
   JoinRequest,
   Invitation,
   Task,

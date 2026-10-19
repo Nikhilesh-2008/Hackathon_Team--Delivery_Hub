@@ -7,9 +7,19 @@ import { Avatar } from '../components/ui/Avatar';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Tabs } from '../components/ui/Tabs';
+import { MultiSelect } from '../components/ui/MultiSelect';
+import { SearchSelect } from '../components/ui/SearchSelect';
+import { UploadCertificateModal } from '../components/profile/UploadCertificateModal';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
+import {
+  COLLEGES,
+  SKILL_OPTIONS,
+  TRACK_OPTIONS,
+  AVAILABILITY_OPTIONS,
+  SPECIALIZATION_OPTIONS,
+} from '../data/options';
 import {
   Award,
   Code2 as Github,
@@ -21,7 +31,10 @@ import {
   Plus,
   Sparkles,
   Link as LinkIcon,
-  BookOpen
+  BookOpen,
+  Paperclip,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react';
 
 export const ProfilePage = () => {
@@ -29,6 +42,7 @@ export const ProfilePage = () => {
   const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [liveProfile, setLiveProfile] = useState(null);
 
@@ -40,8 +54,8 @@ export const ProfilePage = () => {
     availability: '8-10 hrs/week',
     college: '',
     year: '',
-    skills: '',
-    interests: '',
+    skills: [],
+    interests: [],
     github: '',
     leetcode: '',
   });
@@ -82,24 +96,37 @@ export const ProfilePage = () => {
       availability: currentAvailability,
       college: currentCollege,
       year: currentYear,
-      skills: currentSkills.join(', '),
-      interests: currentInterests.join(', '),
+      skills: [...currentSkills],
+      interests: [...currentInterests],
       github: currentCodingProfiles?.github || '',
       leetcode: currentCodingProfiles?.leetcode || '',
     });
     setIsEditModalOpen(true);
   };
 
+  const handleCertificateUploaded = (updatedProfile) => {
+    if (updatedProfile) setLiveProfile(updatedProfile);
+    showSuccess('Certificate uploaded successfully!');
+  };
+
+  const handleDeleteCertificate = async (certificate) => {
+    const certificateId = certificate._id || certificate.id;
+    if (!certificateId) return;
+    try {
+      const res = await api.delete(`/profiles/me/certificates/${certificateId}`);
+      if (res?.data) setLiveProfile(res.data);
+      showSuccess('Certificate removed');
+    } catch (err) {
+      showError(err.message || 'Could not remove certificate');
+    }
+  };
+
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const skillsArray = editForm.skills
-      ? editForm.skills.split(',').map((s) => s.trim()).filter(Boolean)
-      : [];
-    const interestsArray = editForm.interests
-      ? editForm.interests.split(',').map((i) => i.trim()).filter(Boolean)
-      : [];
+    const skillsArray = editForm.skills;
+    const interestsArray = editForm.interests;
 
     const codingProfilesClean = {};
     if (editForm.github && editForm.github.trim()) {
@@ -257,23 +284,56 @@ export const ProfilePage = () => {
             <Card className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-[#172033]">Certifications</h3>
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => setIsCertificateModalOpen(true)}
+                  className="gap-1 text-xs"
+                >
+                  <Paperclip size={13} />
+                  <span>Upload</span>
+                </Button>
               </div>
 
               {currentCertificates.length > 0 ? (
                 <div className="space-y-2.5">
                   {currentCertificates.map((c) => (
-                    <div key={c.id || c._id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
-                      <div>
+                    <div key={c.id || c._id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs">
+                      <div className="min-w-0">
                         <p className="font-bold text-[#172033]">{c.title}</p>
-                        <p className="text-slate-500">{c.issuer}</p>
+                        <p className="text-slate-500">{c.issuer}{c.date ? ` · ${c.date}` : ''}</p>
                       </div>
-                      <span className="text-slate-400">{c.date}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {c.fileUrl && (
+                          <a
+                            href={c.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50"
+                            aria-label={`View ${c.title}`}
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCertificate(c)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          aria-label={`Delete ${c.title}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/50 text-xs text-slate-500">
-                  No verified certifications uploaded yet.
+                <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center bg-slate-50/50 text-xs text-slate-500 space-y-2">
+                  <p>No certifications uploaded yet.</p>
+                  <Button size="xs" variant="secondary" onClick={() => setIsCertificateModalOpen(true)} className="gap-1">
+                    <Paperclip size={12} />
+                    <span>Upload your first certificate</span>
+                  </Button>
                 </div>
               )}
             </Card>
@@ -428,25 +488,21 @@ export const ProfilePage = () => {
               onChange={(e) => setEditForm({ ...editForm, specialization: e.target.value })}
               className="w-full bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm text-[#172033] focus:outline-none focus:border-[#4F46E5]"
             >
-              <option value="Frontend Developer">Frontend Developer</option>
-              <option value="Backend Developer">Backend Developer</option>
-              <option value="Full Stack Developer">Full Stack Developer</option>
-              <option value="AI/ML Developer">AI/ML Developer</option>
-              <option value="UI/UX Designer">UI/UX Designer</option>
-              <option value="DevOps Developer">DevOps Developer</option>
-              <option value="Database Developer">Database Developer</option>
-              <option value="Cybersecurity">Cybersecurity</option>
-              <option value="IoT Developer">IoT Developer</option>
-              <option value="Generalist">Generalist</option>
+              {SPECIALIZATION_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
             </select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
+            <SearchSelect
               label="College / University"
+              options={COLLEGES}
               value={editForm.college}
-              onChange={(e) => setEditForm({ ...editForm, college: e.target.value })}
-              placeholder="e.g. VNR VJIET"
+              onChange={(next) => setEditForm({ ...editForm, college: next })}
+              placeholder="Select your college"
+              searchPlaceholder="Search colleges…"
+              allowCustom
             />
             <Input
               label="Graduation Year / Semester"
@@ -456,24 +512,23 @@ export const ProfilePage = () => {
             />
           </div>
 
-          <div>
-            <Input
-              label="Skills & Technologies (Comma-separated)"
-              value={editForm.skills}
-              onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })}
-              placeholder="e.g. React, Node.js, Python, MongoDB, Docker, TypeScript"
-            />
-            <p className="text-[11px] text-slate-400 mt-1">Separate skills with commas (e.g. React, Node.js, Python, MongoDB).</p>
-          </div>
+          <MultiSelect
+            label="Skills & Technologies"
+            options={SKILL_OPTIONS}
+            value={editForm.skills}
+            onChange={(next) => setEditForm({ ...editForm, skills: next })}
+            placeholder="Select your skills"
+            searchPlaceholder="Search skills…"
+          />
 
-          <div>
-            <Input
-              label="Preferred Tracks & Interests (Comma-separated)"
-              value={editForm.interests}
-              onChange={(e) => setEditForm({ ...editForm, interests: e.target.value })}
-              placeholder="e.g. AI/ML, Cloud Infrastructure, FinTech, Web3"
-            />
-          </div>
+          <MultiSelect
+            label="Preferred Tracks & Interests"
+            options={TRACK_OPTIONS}
+            value={editForm.interests}
+            onChange={(next) => setEditForm({ ...editForm, interests: next })}
+            placeholder="Select hackathon tracks"
+            searchPlaceholder="Search tracks…"
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
@@ -490,12 +545,18 @@ export const ProfilePage = () => {
             />
           </div>
 
-          <Input
-            label="Weekly Availability / Commitment"
-            value={editForm.availability}
-            onChange={(e) => setEditForm({ ...editForm, availability: e.target.value })}
-            placeholder="e.g. 8-10 hrs/week"
-          />
+          <div>
+            <label className="block text-xs font-semibold text-[#172033] mb-1.5">Weekly Availability / Commitment</label>
+            <select
+              value={editForm.availability}
+              onChange={(e) => setEditForm({ ...editForm, availability: e.target.value })}
+              className="w-full bg-white border border-[#E2E8F0] rounded-xl px-3 py-2 text-sm text-[#172033] focus:outline-none focus:border-[#4F46E5]"
+            >
+              {[...new Set([editForm.availability, ...AVAILABILITY_OPTIONS].filter(Boolean))].map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-[#172033] mb-1.5">Bio & About Me</label>
@@ -518,6 +579,12 @@ export const ProfilePage = () => {
           </div>
         </form>
       </Modal>
+
+      <UploadCertificateModal
+        isOpen={isCertificateModalOpen}
+        onClose={() => setIsCertificateModalOpen(false)}
+        onUploaded={handleCertificateUploaded}
+      />
     </div>
   );
 };

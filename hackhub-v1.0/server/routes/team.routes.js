@@ -39,4 +39,21 @@ router.get(
   teamController.getTeamMembers
 );
 
+// GET /api/teams/:teamId/messages
+router.get(
+  '/teams/:teamId/messages',
+  requireAuth,
+  requireTeamMembership,
+  teamController.getTeamMessages
+);
+
+// POST /api/teams/:teamId/messages
+router.post(
+  '/teams/:teamId/messages',
+  requireAuth,
+  requireTeamMembership,
+  requireFields('text'),
+  teamController.createTeamMessage
+);
+
 export default router;

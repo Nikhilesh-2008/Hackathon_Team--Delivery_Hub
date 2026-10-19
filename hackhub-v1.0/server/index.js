@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectDatabase } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { UPLOAD_ROOT } from './middleware/upload.js';
 
 // Route imports
 import healthRoutes from './routes/health.routes.js';
@@ -37,6 +38,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Uploaded profile certificates (served through the /api prefix so the Vite proxy forwards them)
+app.use('/api/uploads', express.static(UPLOAD_ROOT, { fallthrough: true, index: false }));
 
 // Primary API Router mounted strictly under single prefix /api
 const apiRouter = express.Router();

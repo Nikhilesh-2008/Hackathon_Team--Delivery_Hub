@@ -1,5 +1,10 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { Profile, User } from '../models/index.js';
 import { AppError } from '../utils/response.js';
+import { CERTIFICATE_DIR, CERTIFICATE_URL_PREFIX } from '../middleware/upload.js';
+
+const certificateInclude = 'name email college graduationYear avatarUrl role';
 
 export const getMyProfile = async (userId) => {
   let profile = await Profile.findOne({ userId }).populate('userId', 'name email college graduationYear avatarUrl role');
@@ -87,8 +92,70 @@ export const getProfileById = async (id) => {
   return profile;
 };
 
+export const addCertificate = async (userId, file, { title, issuer, date } = {}) => {
+  if (!file) {
+    throw new AppError('VALIDATION_ERROR', 'A certificate file is required', 400);
+  }
+  if (!title || !title.trim()) {
+    throw new AppError('VALIDATION_ERROR', 'Certificate title is required', 400);
+  }
+  if (!issuer || !issuer.trim()) {
+    throw new AppError('VALIDATION_ERROR', 'Certificate issuer is required', 400);
+  }
+
+  const certificate = {
+    title: title.trim(),
+    issuer: issuer.trim(),
+    date: (date || '').trim(),
+    fileUrl: `${CERTIFICATE_URL_PREFIX}/${file.filename}`,
+    originalName: file.originalname || file.filename,
+    mimeType: file.mimetype || '',
+    size: file.size || 0,
+    uploadedAt: new Date(),
+  };
+
+  const profile = await Profile.findOneAndUpdate(
+    { userId },
+    { $setOnInsert: { specialization: 'Generalist', skills: [], interests: [], availability: '8-10 hrs/week', discoveryConsent: true } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  profile.certificates.push(certificate);
+  await profile.save();
+
+  return Profile.findById(profile._id).populate('userId', certificateInclude);
+};
+
+export const removeCertificate = async (userId, certificateId) => {
+  const profile = await Profile.findOne({ userId });
+  if (!profile) {
+    throw new AppError('RESOURCE_NOT_FOUND', 'Profile not found', 404);
+  }
+
+  const certificate = profile.certificates.id(certificateId);
+  if (!certificate) {
+    throw new AppError('RESOURCE_NOT_FOUND', 'Certificate not found', 404);
+  }
+
+  // Delete the stored file when it lives inside the managed upload directory
+  if (certificate.fileUrl) {
+    const fileName = path.basename(certificate.fileUrl);
+    const filePath = path.join(CERTIFICATE_DIR, fileName);
+    if (filePath.startsWith(CERTIFICATE_DIR)) {
+      await fs.unlink(filePath).catch(() => {});
+    }
+  }
+
+  certificate.deleteOne();
+  await profile.save();
+
+  return Profile.findById(profile._id).populate('userId', certificateInclude);
+};
+
 export default {
   getMyProfile,
   updateMyProfile,
   getProfileById,
+  addCertificate,
+  removeCertificate,
 };

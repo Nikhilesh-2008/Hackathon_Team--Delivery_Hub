@@ -56,6 +56,8 @@ export const apiRoutes = {
   // PROFILES
   profiles: {
     me: () => '/api/profiles/me',
+    certificates: () => '/api/profiles/me/certificates',
+    certificate: (certificateId) => `/api/profiles/me/certificates/${certificateId}`,
   },
 
   // DISCOVERY
@@ -70,6 +72,7 @@ export const apiRoutes = {
     byId: (teamId) => `/api/teams/${teamId}`,
     update: (teamId) => `/api/teams/${teamId}`,
     members: (teamId) => `/api/teams/${teamId}/members`,
+    messages: (teamId) => `/api/teams/${teamId}/messages`,
     joinRequests: (teamId) => `/api/teams/${teamId}/join-requests`,
     invitations: (teamId) => `/api/teams/${teamId}/invitations`,
     tasks: (teamId) => `/api/teams/${teamId}/tasks`,
