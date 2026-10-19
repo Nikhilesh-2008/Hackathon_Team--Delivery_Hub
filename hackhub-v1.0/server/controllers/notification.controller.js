@@ -3,16 +3,7 @@ import { sendSuccess } from '../utils/response.js';
 
 export const getMyNotifications = async (req, res, next) => {
   try {
-    const data = await notificationService.getMyNotifications(req.user);
-    return sendSuccess(res, data, 200);
-  } catch (err) {
-    return next(err);
-  }
-};
-
-export const markNotificationRead = async (req, res, next) => {
-  try {
-    const data = await notificationService.markNotificationRead(req.params.notificationId, req.user);
+    const data = await notificationService.getMyNotifications(req.user._id);
     return sendSuccess(res, data, 200);
   } catch (err) {
     return next(err);
@@ -21,15 +12,20 @@ export const markNotificationRead = async (req, res, next) => {
 
 export const markAllNotificationsRead = async (req, res, next) => {
   try {
-    const data = await notificationService.markAllNotificationsRead(req.user);
+    const data = await notificationService.markAllNotificationsRead(req.user._id);
     return sendSuccess(res, data, 200);
   } catch (err) {
     return next(err);
   }
 };
 
-export default {
-  getMyNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
+export const markNotificationRead = async (req, res, next) => {
+  try {
+    const data = await notificationService.markNotificationRead(req.user._id, req.params.notificationId);
+    return sendSuccess(res, data, 200);
+  } catch (err) {
+    return next(err);
+  }
 };
+
+export default { getMyNotifications, markAllNotificationsRead, markNotificationRead };

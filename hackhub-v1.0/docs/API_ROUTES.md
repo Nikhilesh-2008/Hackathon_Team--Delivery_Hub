@@ -78,6 +78,14 @@
 | POST | `/api/auth/invitations` | Yes | ORGANIZER, ADMIN | Invite new judge or mentor staff member to the platform | AuthController.createStaffInvitation | AuthService.createStaffInvitation |
 | POST | `/api/auth/invitations/:invitationId/accept` | Yes | ALL | Accept platform staff invitation and elevate user role | AuthController.acceptStaffInvitation | AuthService.acceptStaffInvitation |
 | DELETE | `/api/auth/invitations/:invitationId` | Yes | ORGANIZER, ADMIN | Revoke pending platform staff invitation | AuthController.revokeStaffInvitation | AuthService.revokeStaffInvitation |
+| **USERS** | | | | | | |
+| GET | `/api/auth/users/me` | Yes | ALL | Get authenticated user context, profile summary, and reputation | UserController.getMe | UserService.getMe |
+| PATCH | `/api/auth/users/me` | Yes | ALL | Update authenticated user profile (bio, skills, availability, discoveryConsent) | UserController.updateMe | UserService.updateMe |
+| DELETE | `/api/auth/users/me` | Yes | ALL | Deactivate authenticated user account and profile | UserController.deactivateMe | UserService.deactivateMe |
+| GET | `/api/auth/users/:userId` | Yes | ALL | Get public user profile (sanitized, non-self users) | UserController.getUserById | UserService.getUserById |
+| GET | `/api/auth/users/:userId/reputation` | Yes | ALL | Get public reputation points and ledger history for a user | UserController.getUserReputation | UserService.getUserReputation |
+| **SESSIONS** | | | | | | |
+| POST | `/api/auth/refresh` | No | Public | Rotate refresh token and issue a new access token | SessionController.refresh | SessionService.refresh |
 | **EVENTS** | | | | | | |
 | GET | `/api/events` | No | Public | List published and active hackathons with optional category/search filters | EventController.listEvents | EventService.listEvents |
 | GET | `/api/events/:eventId` | No | Public | Get comprehensive event details, track challenges, and active rubric | EventController.getEventById | EventService.getEventById |
@@ -96,6 +104,7 @@
 | PATCH | `/api/profiles/me` | Yes | ALL | Update user profile bio, skills, availability, and discoveryConsent | ProfileController.updateMyProfile | ProfileService.updateMyProfile |
 | POST | `/api/profiles/me/certificates` | Yes | ALL | Upload a certificate file (PDF/image) and attach it to the profile | ProfileController.addCertificate | ProfileService.addCertificate |
 | DELETE | `/api/profiles/me/certificates/:certificateId` | Yes | ALL | Delete a certificate and its uploaded file from the profile | ProfileController.removeCertificate | ProfileService.removeCertificate |
+| GET | `/api/profiles/:id` | Yes | ALL | Get public profile by profile ID (sanitized) | ProfileController.getProfileById | ProfileService.getProfileById |
 | **DISCOVERY** | | | | | | |
 | POST | `/api/discovery/challenges` | No | Public | Filter and search challenges by difficulty, tags, or keywords | DiscoveryController.discoverChallenges | DiscoveryService.discoverChallenges |
 | POST | `/api/discovery/teammates` | Yes | PARTICIPANT, ORGANIZER, ADMIN | Discover candidate teammates respecting discoveryConsent === true | DiscoveryController.discoverTeammates | DiscoveryService.discoverTeammates |
@@ -118,6 +127,7 @@
 | POST | `/api/invitations/:invitationId/accept` | Yes | Invitee, ADMIN | Accept team invitation and become active member | InvitationController.acceptInvitation | InvitationService.acceptInvitation |
 | POST | `/api/invitations/:invitationId/reject` | Yes | Invitee, ADMIN | Decline team invitation | InvitationController.rejectInvitation | InvitationService.rejectInvitation |
 | DELETE | `/api/invitations/:invitationId` | Yes | Inviter, Captain, ADMIN | Cancel sent team invitation | InvitationController.cancelInvitation | InvitationService.cancelInvitation |
+| GET | `/api/invitations/received` | Yes | ALL | List all team invitations received by the authenticated user | InvitationController.getReceivedInvitations | InvitationService.getReceivedInvitations |
 | **TASKS** | | | | | | |
 | GET | `/api/teams/:teamId/tasks` | Yes | Team Members, Mentors, Staff | List Kanban sprint tasks for team | TaskController.getTeamTasks | TaskService.getTeamTasks |
 | POST | `/api/teams/:teamId/tasks` | Yes | Team Members, ADMIN | Create new task in team sprint Kanban board | TaskController.createTask | TaskService.createTask |
@@ -143,6 +153,7 @@
 | PATCH | `/api/rubrics/:rubricId` | Yes | ORGANIZER, ADMIN | Update rubric criteria and scoring weights | RubricController.updateRubric | RubricService.updateRubric |
 | **MENTOR** | | | | | | |
 | GET | `/api/mentor/teams` | Yes | MENTOR, ADMIN | List teams assigned to current authenticated mentor | MentorController.getAssignedTeams | MentorService.getAssignedTeams |
+| GET | `/api/mentor/feedback` | Yes | MENTOR, ADMIN | List feedback authored by the current authenticated mentor | MentorController.getMentorFeedback | MentorService.getMentorFeedback |
 | GET | `/api/teams/:teamId/feedback` | Yes | Team Members, Mentors, Staff | List mentor guidance and feedback records for a team | MentorController.getTeamFeedback | MentorService.getTeamFeedback |
 | POST | `/api/teams/:teamId/feedback` | Yes | MENTOR, ADMIN | Post actionable mentor feedback and recommendations | MentorController.createFeedback | MentorService.createFeedback |
 | **JUDGE** | | | | | | |
@@ -159,13 +170,15 @@
 | POST | `/api/documents/:documentId/retry` | Yes | ORGANIZER, ADMIN | Retry extraction and embedding pipeline for failed document | DocumentController.retryDocumentProcessing | DocumentService.retryDocumentProcessing |
 | DELETE | `/api/documents/:documentId` | Yes | ORGANIZER, ADMIN | Delete document and cascade remove all parsed chunks | DocumentController.deleteDocument | DocumentService.deleteDocument |
 | **RAG / RULEBOOK Q&A** | | | | | | |
-| POST | `/api/events/:eventId/rulebook/query` | Yes | ALL | Query event rulebook with strict event-scoped chunk retrieval and citations | RagController.queryRulebook | RagService.queryRulebook |
+| GET | `/api/rulebook/events` | Yes | ALL | List events that have an indexed rulebook, with chunk and document counts | RagController.listRulebookEvents | RagService.listRulebookEvents |
+| POST | `/api/events/:eventId/rulebook/query` | Yes | ALL | Answer strictly from event rulebook chunks via embedding retrieval, escalating out-of-scope questions to event contacts | RagController.queryRulebook | RagService.queryRulebook |
 | **AI DELIVERY PLANNER** | | | | | | |
 | POST | `/api/teams/:teamId/ai/delivery-plan` | Yes | ALL | Generate read-only delivery assessment and proposal via AgentRun | AgentController.generateDeliveryPlan | AgentService.generateDeliveryPlan |
 | POST | `/api/teams/:teamId/ai/delivery-plan/:agentRunId/confirm` | Yes | Team Captain, ADMIN | Captain approves and applies delivery plan milestones | AgentController.confirmDeliveryPlan | AgentService.confirmDeliveryPlan |
 | POST | `/api/teams/:teamId/ai/delivery-plan/:agentRunId/cancel` | Yes | Team Captain, ADMIN | Reject and discard proposed delivery plan proposal | AgentController.cancelDeliveryPlan | AgentService.cancelDeliveryPlan |
 | **NOTIFICATIONS** | | | | | | |
 | GET | `/api/notifications` | Yes | ALL | List notifications for current user with unread counts | NotificationController.getMyNotifications | NotificationService.getMyNotifications |
+| PATCH | `/api/notifications/read-all` | Yes | ALL | Mark all notifications for the current user as read | NotificationController.markAllNotificationsRead | NotificationService.markAllNotificationsRead |
 | PATCH | `/api/notifications/:notificationId/read` | Yes | ALL | Mark specific notification as read (PATCH) | NotificationController.markNotificationRead | NotificationService.markNotificationRead |
 | POST | `/api/notifications/:notificationId/read` | Yes | ALL | Mark specific notification as read (POST alias) | NotificationController.markNotificationRead | NotificationService.markNotificationRead |
 | **REPUTATION** | | | | | | |

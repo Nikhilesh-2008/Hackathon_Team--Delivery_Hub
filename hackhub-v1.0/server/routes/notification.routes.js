@@ -13,7 +13,7 @@ router.patch('/notifications/read-all', requireAuth, notificationController.mark
 // PATCH /api/notifications/:notificationId/read
 router.patch('/notifications/:notificationId/read', requireAuth, notificationController.markNotificationRead);
 
-// POST /api/notifications/:notificationId/read
+// POST /api/notifications/:notificationId/read (legacy alias)
 router.post('/notifications/:notificationId/read', requireAuth, notificationController.markNotificationRead);
 
 export default router;

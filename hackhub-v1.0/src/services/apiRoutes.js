@@ -141,6 +141,12 @@ export const apiRoutes = {
     eventById: (eventId) => `/api/organizer/events/${eventId}`,
   },
 
+  // RULEBOOK RAG
+  rulebook: {
+    events: () => '/api/rulebook/events',
+    query: (eventId) => `/api/events/${eventId}/rulebook/query`,
+  },
+
   // DOCUMENTS
   documents: {
     byId: (documentId) => `/api/documents/${documentId}`,
@@ -152,6 +158,7 @@ export const apiRoutes = {
   notifications: {
     list: () => '/api/notifications',
     markRead: (notificationId) => `/api/notifications/${notificationId}/read`,
+    markAllRead: () => '/api/notifications/read-all',
   },
 
   // REPUTATION

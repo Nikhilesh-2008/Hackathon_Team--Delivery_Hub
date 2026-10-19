@@ -1,255 +1,275 @@
-import {
-  Team,
-  Membership,
-  Event,
-  Challenge,
-  User,
-  AuditLog,
-  Notification,
-  Task,
-  EventRegistration,
-  ChatMessage,
-} from '../models/index.js';
+import { User, Team, Membership, Invitation, Event, Notification, ChatMessage } from '../models/index.js';
 import { AppError } from '../utils/response.js';
 
-export const createTeam = async (user, { eventId, challengeId, name, description, technicalDecisions = [] }) => {
+export const createTeam = async (userId, { eventId, challengeId, name, description }) => {
   const event = await Event.findById(eventId);
   if (!event) {
     throw new AppError('RESOURCE_NOT_FOUND', 'Event not found', 404);
   }
 
-  // Check event registration status
-  if (['closed', 'locked'].includes(event.status)) {
-    throw new AppError('BUSINESS_RULE_VIOLATION', 'Event registration has closed', 422);
-  }
-  if (event.registrationDeadline && new Date(event.registrationDeadline).getTime() < Date.now()) {
-    throw new AppError('BUSINESS_RULE_VIOLATION', 'Event registration deadline has passed', 422);
+  if (event.status !== 'published' && event.status !== 'active') {
+    throw new AppError('FORBIDDEN', 'Cannot create a team for this event', 403);
   }
 
-  // Check if user is already an active member of ANY team in this event
-  const existingActiveMembership = await Membership.findOne({
-    userId: user._id,
-    eventId: event._id,
+  if (event.registrationDeadline && new Date(event.registrationDeadline) < new Date()) {
+    throw new AppError('FORBIDDEN', 'Registration for this event is closed', 403);
+  }
+
+  // A participant can only belong to ONE active team per event
+  const existingMembership = await Membership.findOne({ userId, eventId, status: 'active' });
+  if (existingMembership) {
+    throw new AppError('CONFLICT', 'User is already in an active team for this hackathon', 409);
+  }
+
+  // Team names are unique within an event
+  const existingTeam = await Team.findOne({ eventId, name });
+  if (existingTeam) {
+    throw new AppError('CONFLICT', 'A team with this name already exists for this event', 409);
+  }
+
+  // 1. Create the team, then 2. attach the captain membership with the real teamId
+  // (Membership.teamId is required, so it cannot be created before the team exists).
+  const team = await Team.create({
+    eventId,
+    challengeId,
+    name,
+    description: description || '',
+    createdBy: userId,
     status: 'active',
   });
 
-  if (existingActiveMembership) {
-    throw new AppError('CONFLICT', 'User is already an active member of a team in this hackathon', 409);
-  }
-
-  // Check team name uniqueness within event
-  const existingTeam = await Team.findOne({ eventId: event._id, name: name.trim() });
-  if (existingTeam) {
-    throw new AppError('CONFLICT', `A team named '${name}' already exists in this event`, 409);
-  }
-
-  let resolvedChallengeId = challengeId;
-  if (resolvedChallengeId) {
-    const challenge = await Challenge.findOne({ _id: resolvedChallengeId, eventId: event._id });
-    if (!challenge) {
-      throw new AppError('RESOURCE_NOT_FOUND', 'Selected challenge does not belong to this event', 404);
-    }
-  } else {
-    const defaultChallenge = await Challenge.findOne({ eventId: event._id });
-    if (defaultChallenge) {
-      resolvedChallengeId = defaultChallenge._id;
-    }
-  }
-
-  // Create team
-  const team = await Team.create({
-    eventId: event._id,
-    challengeId: resolvedChallengeId,
-    name: name.trim(),
-    description: description || '',
-    createdBy: user._id,
-    status: 'forming',
-    technicalDecisions,
-  });
-
-  // Create Captain Membership record
   const membership = await Membership.create({
-    userId: user._id,
+    userId,
     teamId: team._id,
-    eventId: event._id,
+    eventId,
     role: 'captain',
     status: 'active',
-    responsibilities: ['Team Lead', 'Product Delivery'],
   });
 
-  // Register the captain for the hackathon (idempotent via unique eventId+userId index)
-  await EventRegistration.findOneAndUpdate(
-    { eventId: event._id, userId: user._id },
-    { $set: { teamId: team._id, status: 'registered', registeredAt: new Date() } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
-
-  await AuditLog.create({
-    eventId: event._id,
-    actorId: user._id,
-    actorRole: user.role,
-    action: 'TEAM_CREATED',
-    entityType: 'Team',
-    entityId: team._id,
-    reason: 'Initial team formation by captain',
-  });
+  await User.findByIdAndUpdate(userId, { $set: { role: 'PARTICIPANT' } });
 
   return {
-    team,
-    membership,
+    team: {
+      _id: team._id,
+      eventId,
+      challengeId,
+      name: team.name,
+      description: team.description,
+      createdBy: userId,
+      status: team.status,
+      progress: team.progress,
+      createdAt: team.createdAt,
+    },
+    membership: {
+      _id: membership._id,
+      userId,
+      teamId: team._id,
+      eventId,
+      role: membership.role,
+      status: membership.status,
+    },
   };
 };
 
-export const getTeamById = async (teamId) => {
-  const team = await Team.findById(teamId)
-    .populate('eventId', 'name slug submissionDeadline status minTeamSize maxTeamSize')
-    .populate('challengeId', 'title track problemStatement requirements')
-    .populate('createdBy', 'name email avatarUrl');
-
-  if (!team) {
-    throw new AppError('RESOURCE_NOT_FOUND', 'Team workspace not found', 404);
+export const getMyTeam = async (userId) => {
+  const membership = await Membership.findOne({ userId, status: 'active' });
+  if (!membership) {
+    return null;
   }
 
-  const members = await Membership.find({ teamId: team._id, status: 'active' })
-    .populate('userId', 'name email college avatarUrl graduationYear role')
-    .lean();
-
-  const totalTasks = await Task.countDocuments({ teamId: team._id });
-  const doneTasks = await Task.countDocuments({ teamId: team._id, status: 'done' });
-  const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-
-  const teamObj = team.toObject ? team.toObject() : { ...team };
-  teamObj.progress = progress;
+  const team = await Team.findById(membership.teamId).populate('eventId', 'name slug');
+  if (!team) {
+    return null;
+  }
 
   return {
-    team: teamObj,
-    members: members.map((m) => ({
-      membershipId: m._id,
-      user: m.userId,
-      role: m.role,
-      status: m.status,
-      responsibilities: m.responsibilities,
-      specialization: m.specialization,
-      joinedAt: m.joinedAt,
-    })),
+    id: team._id,
+    name: team.name,
+    eventId: team.eventId?._id,
+    eventName: team.eventId?.name,
+    challengeId: team.challengeId,
+    status: team.status,
   };
 };
 
-export const updateTeam = async (teamId, user, updateData) => {
-  const team = await Team.findById(teamId);
+export const getTeamById = async (teamId, userId) => {
+  const membership = await Membership.findOne({ userId, teamId, status: 'active' });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'Access denied: You are not an active member of this team', 403);
+  }
+
+  const team = await Team.findById(teamId).populate('eventId', 'name slug');
   if (!team) {
     throw new AppError('RESOURCE_NOT_FOUND', 'Team not found', 404);
   }
 
-  // Verify captain authorization
-  const membership = await Membership.findOne({
-    userId: user._id,
-    teamId: team._id,
-    status: 'active',
-  });
-
-  if (user.role !== 'ADMIN' && (!membership || membership.role !== 'captain')) {
-    throw new AppError('FORBIDDEN', 'Only team captain can modify team settings', 403);
-  }
-
-  if (updateData.name && updateData.name !== team.name) {
-    const existing = await Team.findOne({
-      eventId: team.eventId,
-      name: updateData.name.trim(),
-      _id: { $ne: team._id },
-    });
-    if (existing) {
-      throw new AppError('CONFLICT', `Team name '${updateData.name}' is already taken in this event`, 409);
-    }
-    team.name = updateData.name.trim();
-  }
-
-  if (updateData.description !== undefined) {
-    team.description = updateData.description;
-  }
-
-  if (updateData.challengeId) {
-    team.challengeId = updateData.challengeId;
-  }
-
-  if (updateData.technicalDecisions) {
-    team.technicalDecisions = updateData.technicalDecisions;
-  }
-
-  if (updateData.status) {
-    team.status = updateData.status;
-  }
-
-  await team.save();
-
-  return team;
-};
-
-export const getTeamMembers = async (teamId) => {
-  const team = await Team.findById(teamId);
-  if (!team) {
-    throw new AppError('RESOURCE_NOT_FOUND', 'Team not found', 404);
-  }
-
-  const memberships = await Membership.find({ teamId, status: 'active' })
-    .populate('userId', 'name email college avatarUrl graduationYear role')
+  const memberRecords = await Membership.find({ teamId, status: 'active' })
+    .populate('userId', 'name email college graduationYear avatarUrl')
     .lean();
 
-  return memberships.map((m) => ({
-    membershipId: m._id,
-    user: m.userId,
+  const members = memberRecords.map((m) => ({
+    id: m.userId?._id,
+    name: m.userId?.name,
+    email: m.userId?.email,
+    college: m.userId?.college,
+    graduationYear: m.userId?.graduationYear,
+    avatarUrl: m.userId?.avatarUrl,
     role: m.role,
-    status: m.status,
-    responsibilities: m.responsibilities,
     specialization: m.specialization,
-    joinedAt: m.joinedAt,
+    responsibilities: m.responsibilities,
+    isCaptain: m.role === 'captain',
+  }));
+
+  return {
+    id: team._id,
+    _id: team._id,
+    name: team.name,
+    eventId: team.eventId?._id,
+    eventName: team.eventId?.name,
+    challengeId: team.challengeId,
+    description: team.description,
+    status: team.status,
+    progress: team.progress,
+    technicalDecisions: team.technicalDecisions,
+    members,
+  };
+};
+
+export const getTeamMembers = async (teamId, userId) => {
+  const membership = await Membership.findOne({ userId, teamId, status: 'active' });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'Access denied: You are not a member of this team', 403);
+  }
+
+  const members = await Membership.find({ teamId, status: 'active' })
+    .populate('userId', 'name email college graduationYear avatarUrl')
+    .lean();
+
+  return members.map((m) => ({
+    id: m.userId?._id,
+    name: m.userId?.name,
+    email: m.userId?.email,
+    college: m.userId?.college,
+    graduationYear: m.userId?.graduationYear,
+    avatarUrl: m.userId?.avatarUrl,
+    role: m.role,
+    isCaptain: m.role === 'captain',
   }));
 };
 
-const presentMessage = (message) => ({
-  id: message._id,
-  text: message.text,
-  senderId: message.senderId?._id || message.senderId,
-  senderName: message.senderId?.name || 'Former member',
-  senderAvatarUrl: message.senderId?.avatarUrl || '',
-  createdAt: message.createdAt,
-});
+export const getTeamMessages = async (teamId, userId) => {
+  const membership = await Membership.findOne({ userId, teamId, status: 'active' });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'Access denied: You are not a member of this team', 403);
+  }
 
-export const getTeamMessages = async (teamId, { limit = 100 } = {}) => {
-  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 200);
   const messages = await ChatMessage.find({ teamId })
+    .populate('senderId', 'name')
     .sort({ createdAt: -1 })
-    .limit(safeLimit)
-    .populate('senderId', 'name avatarUrl role')
+    .limit(100)
     .lean();
 
-  return messages.reverse().map(presentMessage);
+  return messages.reverse().map((m) => ({
+    id: m._id,
+    senderId: m.senderId?._id,
+    senderName: m.senderId?.name,
+    text: m.text,
+    createdAt: m.createdAt,
+  }));
 };
 
-export const createTeamMessage = async (team, user, { text } = {}) => {
-  const trimmed = typeof text === 'string' ? text.trim() : '';
-  if (!trimmed) {
-    throw new AppError('VALIDATION_ERROR', 'Message text is required', 400);
-  }
-  if (trimmed.length > 2000) {
-    throw new AppError('VALIDATION_ERROR', 'Message cannot exceed 2000 characters', 400);
+export const createTeamMessage = async (teamId, userId, { text }) => {
+  const membership = await Membership.findOne({ userId, teamId, status: 'active' });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'Access denied: You are not a member of this team', 403);
   }
 
   const message = await ChatMessage.create({
-    teamId: team._id,
-    senderId: user._id,
-    text: trimmed,
+    teamId,
+    senderId: userId,
+    text,
   });
 
-  await message.populate('senderId', 'name avatarUrl role');
-  return presentMessage(message);
+  return {
+    id: message._id,
+    senderId: userId,
+    senderName: '',
+    text: message.text,
+    createdAt: message.createdAt,
+  };
 };
 
-export default {
-  createTeam,
-  getTeamById,
-  updateTeam,
-  getTeamMembers,
-  getTeamMessages,
-  createTeamMessage,
+export const getTeamInvitations = async (teamId, userId) => {
+  const membership = await Membership.findOne({ userId, teamId, status: 'active' });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'Access denied: You are not a member of this team', 403);
+  }
+
+  const invitations = await Invitation.find({
+    teamId,
+    inviteeId: userId,
+    status: 'pending',
+  })
+    .populate('inviterId', 'name')
+    .lean();
+
+  return invitations.map((i) => ({
+    id: i._id,
+    inviterId: i.inviterId?._id,
+    inviterName: i.inviterId?.name,
+    message: i.message,
+    status: i.status,
+    expiresAt: i.expiresAt,
+  }));
 };
+
+export const createInvitation = async (teamId, userId, { inviteeId, message }) => {
+  const membership = await Membership.findOne({ userId, teamId, status: 'active' });
+  if (!membership) {
+    throw new AppError('FORBIDDEN', 'Access denied: You are not a member of this team', 403);
+  }
+
+  if (membership.role !== 'captain') {
+    throw new AppError('FORBIDDEN', 'Only the team captain can send invitations', 403);
+  }
+
+  const invitee = await User.findById(inviteeId);
+  if (!invitee) {
+    throw new AppError('RESOURCE_NOT_FOUND', 'Invitee not found', 404);
+  }  const team = await Team.findById(teamId);  if (!team) {    throw new AppError('RESOURCE_NOT_FOUND', 'Team not found', 404);  }
+  const existing = await Invitation.findOne({ teamId, inviteeId, status: 'pending' });  if (existing) {    throw new AppError('CONFLICT', 'An invitation to this user already exists', 409);  }};
+
+export const updateTeam = async (teamId, userId, updates) => {
+  const team = await Team.findById(teamId);
+  if (!team) {
+    throw new AppError('RESOURCE_NOT_FOUND', 'Team not found', 404);
+  }
+
+  // Only captain or admin can update team details
+  const membership = await Membership.findOne({
+    teamId,
+    userId,
+    status: 'active',
+  });
+  if (!membership || (!['captain', 'admin'].includes(membership.role))) {
+    throw new AppError('FORBIDDEN', 'Access denied: Only team captain or admin can update team details', 403);
+  }
+
+  if (updates.name) {
+    team.name = updates.name;
+  }
+  if (updates.description !== undefined) {
+    team.description = updates.description;
+  }
+  if (Object.keys(updates).length > 0) {
+    await team.save();
+  }
+  return {
+    id: team._id,
+    name: team.name,
+    description: team.description,
+    status: team.status,
+  };
+};
+
+export default { createTeam, getMyTeam, getTeamById, getTeamMembers, getTeamMessages, createTeamMessage, getTeamInvitations, createInvitation, updateTeam };

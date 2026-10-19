@@ -15,6 +15,7 @@ import Submission from './Submission.js';
 import Session from './Session.js';
 import Reputation from './Reputation.js';
 import Notification from './Notification.js';
+import Certificate from './Certificate.js';
 import Feedback from './Feedback.js';
 import Score from './Score.js';
 import AuditLog from './AuditLog.js';
@@ -47,6 +48,7 @@ export {
   Document,
   Chunk,
   AgentRun,
+  Certificate,
 };
 
 export default {
@@ -74,4 +76,5 @@ export default {
   Document,
   Chunk,
   AgentRun,
+  Certificate,
 };

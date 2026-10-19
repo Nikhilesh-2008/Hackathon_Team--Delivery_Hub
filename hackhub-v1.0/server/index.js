@@ -10,6 +10,8 @@ import { UPLOAD_ROOT } from './middleware/upload.js';
 // Route imports
 import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import sessionRoutes from './routes/session.routes.js';
+import userRoutes from './routes/users.routes.js';
 import eventRoutes from './routes/event.routes.js';
 import challengeRoutes from './routes/challenge.routes.js';
 import profileRoutes from './routes/profile.routes.js';
@@ -47,6 +49,8 @@ const apiRouter = express.Router();
 
 apiRouter.use(healthRoutes);
 apiRouter.use(authRoutes);
+apiRouter.use(sessionRoutes);
+apiRouter.use(userRoutes);
 apiRouter.use(eventRoutes);
 apiRouter.use(challengeRoutes);
 apiRouter.use(profileRoutes);
