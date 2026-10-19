@@ -63,13 +63,18 @@ export const TeamFinder = () => {
 
   const fetchCandidates = async () => {
     setLoading(true);
+  try {
     const data = await mockProfileService.getCandidates({
       specialization,
       skill,
-      searchQuery: nlQuery || searchQuery
+      searchQuery: nlQuery || searchQuery,
     });
     setCandidates(data);
+  } catch (err) {
+    setCandidates([]);
+  } finally {
     setLoading(false);
+  }
   };
 
   useEffect(() => {
