@@ -42,13 +42,15 @@ export const NotificationsPage = () => {
   };
 
   const markAllRead = async () => {
-  try {
-    await api.patch('/notifications/read-all', {});
-    setList((current) => current.map((item) => ({ ...item, read: true })));
-  } catch (requestError) {
-    setError(requestError.message || 'Unable to mark all notifications as read.');
-  }
-};
+    const unread = list.filter((item) => !item.read);
+    try {
+      await Promise.all(unread.map((item) => api.patch(`/notifications/${item.id}/read`, {})));
+      setList((current) => current.map((item) => ({ ...item, read: true })));
+    } catch (requestError) {
+      setError(requestError.message || 'Unable to mark all notifications as read.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title="Notifications & Activity Center" subtitle="Stay updated on team invitations, mentor reviews, and deadline reminders.">

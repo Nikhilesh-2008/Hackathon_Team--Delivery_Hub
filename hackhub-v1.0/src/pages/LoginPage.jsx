@@ -100,8 +100,7 @@ export const LoginPage = () => {
           interests: tracks,
         });
 
-        const token = result?.data?.token || result?.token;
-        const { uploaded, failed } = await uploadCertificates(token);
+        const { uploaded, failed } = await uploadCertificates(result?.token);
         const certificateNote = uploaded > 0
           ? ` ${uploaded} certificate${uploaded === 1 ? '' : 's'} uploaded.`
           : '';
