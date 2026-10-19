@@ -21,15 +21,11 @@ const ensureTaskAccess = async (task, user) => {
 };
 
 export const recomputeTeamProgress = async (teamId) => {
-  try {
-    const total = await Task.countDocuments({ teamId });
-    const done = await Task.countDocuments({ teamId, status: 'done' });
-    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-    await Team.findByIdAndUpdate(teamId, { $set: { progress } });
-    return progress;
-  } catch (err) {
-    console.error('[TaskService] Progress recalculation error:', err.message);
-  }
+  const total = await Task.countDocuments({ teamId });
+  const done = await Task.countDocuments({ teamId, status: 'done' });
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  await Team.findByIdAndUpdate(teamId, { $set: { progress } });
+  return progress;
 };
 
 export const createTask = async (teamId, user, taskData) => {
@@ -49,7 +45,9 @@ export const createTask = async (teamId, user, taskData) => {
     status: taskData.status || 'todo',
   });
 
-  await recomputeTeamProgress(team._id);
+  await recomputeTeamProgress(team._id).catch(() => {
+    // Best-effort: do not let stale progress block the task write
+  });
 
   return task;
 };
@@ -106,7 +104,9 @@ export const updateTask = async (taskId, user, updatePayload) => {
     });
   }
 
-  await recomputeTeamProgress(taskRecord.teamId);
+  await recomputeTeamProgress(taskRecord.teamId).catch(() => {
+    // Best-effort: do not let stale progress block the task write
+  });
 
   return updatedTask;
 };
@@ -120,7 +120,9 @@ export const deleteTask = async (taskId, user) => {
   await ensureTaskAccess(task, user);
 
   await Task.findByIdAndDelete(taskId);
-  await recomputeTeamProgress(task.teamId);
+  await recomputeTeamProgress(task.teamId).catch(() => {
+    // Best-effort: do not let stale progress block the delete
+  });
 
   return {
     deleted: true,
